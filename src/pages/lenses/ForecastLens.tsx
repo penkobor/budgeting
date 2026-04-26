@@ -4,7 +4,7 @@ import { Sliders } from 'lucide-react'
 import {
   Area, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine, Line, ComposedChart,
 } from 'recharts'
-import { useMonthlyOpening, useRecurringRules, useSettings } from '@/hooks/queries'
+import { useMonthlyOpening, useRecurringRules, useSettings, useTransactionsInRange } from '@/hooks/queries'
 import { formatMoney, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 
@@ -28,6 +28,15 @@ export function ForecastLens() {
   const { data: rules = [] } = useRecurringRules()
   const currency = settings?.currency ?? 'CZK'
 
+  // Pull every ledger entry within the visible horizon so the forecast
+  // reacts to manual edits (additions, deletions, modifications) just like
+  // any other lens.
+  const horizonStart = useMemo(() => new Date(today.getFullYear(), today.getMonth(), 1), [today])
+  const horizonEnd = useMemo(() => new Date(today.getFullYear(), today.getMonth() + horizon, 0), [today, horizon])
+  const fromIso = horizonStart.toISOString().slice(0, 10)
+  const toIso = horizonEnd.toISOString().slice(0, 10)
+  const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
+
   // Build month-by-month projection
   const series = useMemo(() => {
     const out: Array<{
@@ -38,15 +47,33 @@ export function ForecastLens() {
     const opening0 = opening?.opening_balance ?? 0
     let baseline = opening0
     let scenario = opening0
+    // Pre-bucket transactions by YYYY-MM and a Set of realised rule|date
+    // pairs so we don't double-count a recurring rule already entered as a tx.
+    const txByMonth: Record<string, typeof txs> = {}
+    const realised = new Set<string>()
+    for (const t of txs) {
+      const ym = t.occurred_on.slice(0, 7)
+      ;(txByMonth[ym] ??= []).push(t)
+      if (t.recurring_rule_id) realised.add(`${t.recurring_rule_id}|${t.occurred_on}`)
+    }
     for (let i = 0; i < horizon; i++) {
       const monthStart = new Date(today.getFullYear(), today.getMonth() + i, 1)
       const monthEnd = new Date(today.getFullYear(), today.getMonth() + i + 1, 0)
+      const ym = monthStart.toISOString().slice(0, 7)
       let income = 0, expense = 0
+      // 1. Ledger entries (manual + already-materialised recurring) for this month
+      for (const t of (txByMonth[ym] ?? [])) {
+        const amt = Number(t.amount)
+        if (amt > 0) income += amt
+        else expense += -amt
+      }
+      // 2. Recurring rule instances that are NOT yet in the ledger
       for (const r of rules) {
-        const dates = expandRuleInRange(r, monthStart, monthEnd)
-        const count = dates.length
-        if (r.kind === 'income') income += r.amount * count
-        else expense += r.amount * count
+        for (const d of expandRuleInRange(r, monthStart, monthEnd)) {
+          if (realised.has(`${r.id}|${d}`)) continue
+          if (r.kind === 'income') income += r.amount
+          else expense += r.amount
+        }
       }
       const baselineDelta = income - expense
       const scenarioDelta = (income + salaryDelta) - expense * (1 + spendDeltaPct / 100)
@@ -54,7 +81,7 @@ export function ForecastLens() {
       scenario += scenarioDelta
       out.push({
         label: monthStart.toLocaleDateString(undefined, { month: 'short', year: '2-digit' }),
-        iso: monthStart.toISOString().slice(0, 7),
+        iso: ym,
         baselineBalance: Math.round(baseline),
         scenarioBalance: Math.round(scenario),
         monthlyIncome: income,
@@ -62,7 +89,7 @@ export function ForecastLens() {
       })
     }
     return out
-  }, [rules, opening, today, horizon, salaryDelta, spendDeltaPct])
+  }, [rules, opening, today, horizon, salaryDelta, spendDeltaPct, txs])
 
   const last = series[series.length - 1]
   const opening0 = opening?.opening_balance ?? 0
