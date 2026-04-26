@@ -94,8 +94,8 @@ export function AddTransactionDialog({
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="min-w-0">
             <div className="label mb-1.5">Amount</div>
             <input
               className="input stat-num text-lg"
@@ -105,7 +105,7 @@ export function AddTransactionDialog({
               onChange={(e) => setAmount(e.target.value)}
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="label mb-1.5">Date</div>
             <input
               className="input stat-num"
