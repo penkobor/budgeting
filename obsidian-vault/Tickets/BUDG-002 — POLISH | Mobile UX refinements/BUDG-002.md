@@ -23,6 +23,7 @@ Polish pass on the mobile experience after the user installed the PWA on iPhone 
 - [[BUDG-002 - Plan]] — broken-down subtasks for each feedback item
 
 ### Implementation Log
+- [[BUDG-002 - 2026-04-26 - modal-sheet-rework]] — full rewrite of Modal as native iOS bottom sheet (sticky header + body + footer, 16px inputs)
 - [[BUDG-002 - 2026-04-26 - mobile-polish-pass]] — all four ST1–ST4 subtasks shipped in one session
 
 ### QA
