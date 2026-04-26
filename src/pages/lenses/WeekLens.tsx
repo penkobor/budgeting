@@ -44,47 +44,9 @@ export function WeekLens() {
   const currency = settings?.currency ?? 'CZK'
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
 
-  // Build per-day stats over the 7-day window (planning-only: every tx counts)
-  const days = useMemo(() => {
-    const out: Array<{
-      date: string; label: string; isToday: boolean;
-      expense: number; income: number;
-    }> = []
-    for (let i = 0; i < 7; i++) {
-      const d = addDays(start, i)
-      const dIso = isoDate(d)
-      let expense = 0, income = 0
-      for (const t of txs) {
-        if (t.occurred_on !== dIso) continue
-        const amt = Number(t.amount)
-        if (amt < 0) expense += -amt
-        else income += amt
-      }
-      // un-realised recurring instances
-      for (const r of rules) {
-        const dates = expandRuleInRange(r, d, d)
-        for (const _ of dates) {
-          const realised = txs.some((t) => t.recurring_rule_id === r.id && t.occurred_on === dIso)
-          if (realised) continue
-          if (r.kind === 'income') income += r.amount
-          else expense += r.amount
-        }
-      }
-      out.push({
-        date: dIso,
-        label: d.toLocaleDateString(undefined, { weekday: 'short' }),
-        isToday: dIso === isoDate(today),
-        expense,
-        income,
-      })
-    }
-    return out
-  }, [txs, rules, start, today])
-
-  const totalExpense = days.reduce((a, d) => a + d.expense, 0)
-  const totalIncome = days.reduce((a, d) => a + d.income, 0)
-
-  // Items in window
+  // Build the canonical list of items in the [start, end] window. Everything
+  // downstream (per-day totals, hero numbers, by-category breakdown, items
+  // list) reads from this list so the numbers can't drift.
   const items = useMemo(() => {
     const out: Array<{ key: string; date: string; amount: number; description: string; categoryId: string | null }> = []
     for (const t of txs) {
@@ -113,6 +75,36 @@ export function WeekLens() {
     }
     return out.sort((a, b) => a.date.localeCompare(b.date))
   }, [txs, rules, startIso, endIso, start, end, catMap])
+
+  // Per-day totals (derived from the same items list)
+  const days = useMemo(() => {
+    const out: Array<{
+      date: string; label: string; isToday: boolean;
+      expense: number; income: number;
+    }> = []
+    const todayIso = isoDate(today)
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(start, i)
+      const dIso = isoDate(d)
+      let expense = 0, income = 0
+      for (const it of items) {
+        if (it.date !== dIso) continue
+        if (it.amount < 0) expense += -it.amount
+        else income += it.amount
+      }
+      out.push({
+        date: dIso,
+        label: d.toLocaleDateString(undefined, { weekday: 'short' }),
+        isToday: dIso === todayIso,
+        expense,
+        income,
+      })
+    }
+    return out
+  }, [items, start, today])
+
+  const totalExpense = days.reduce((a, d) => a + d.expense, 0)
+  const totalIncome = days.reduce((a, d) => a + d.income, 0)
 
   // Category breakdown (expenses only — mirrors how the user funds bank sub-accounts)
   const byCategory = useMemo(() => {
