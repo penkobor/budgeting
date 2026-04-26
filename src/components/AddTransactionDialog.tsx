@@ -11,12 +11,11 @@ interface Props {
   initialDescription?: string
   initialCategoryId?: string | null
   editId?: string
-  initialPlanned?: boolean
 }
 
 export function AddTransactionDialog({
   open, onOpenChange,
-  initialDate, initialAmount, initialDescription, initialCategoryId, editId, initialPlanned,
+  initialDate, initialAmount, initialDescription, initialCategoryId, editId,
 }: Props) {
   const { data: categories } = useCategories()
   const upsert = useUpsertTransaction()
@@ -28,7 +27,6 @@ export function AddTransactionDialog({
   const [kind, setKind] = useState<'expense' | 'income'>(
     (initialAmount ?? -1) >= 0 ? 'income' : 'expense'
   )
-  const [planned, setPlanned] = useState(initialPlanned ?? false)
 
   useEffect(() => {
     if (open) {
@@ -37,9 +35,8 @@ export function AddTransactionDialog({
       setDescription(initialDescription ?? '')
       setCategoryId(initialCategoryId ?? '')
       setKind((initialAmount ?? -1) >= 0 ? 'income' : 'expense')
-      setPlanned(initialPlanned ?? false)
     }
-  }, [open, initialDate, initialAmount, initialDescription, initialCategoryId, initialPlanned])
+  }, [open, initialDate, initialAmount, initialDescription, initialCategoryId])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -52,8 +49,10 @@ export function AddTransactionDialog({
       amount: signed,
       description: description || null,
       category_id: categoryId || null,
-      planned,
-      confirmed_at: planned ? null : new Date().toISOString(),
+      // App is a planning tool now — we don't track actual-vs-planned anymore.
+      // We always write `planned: true` to satisfy the legacy NOT NULL column.
+      planned: true,
+      confirmed_at: null,
     })
     onOpenChange(false)
   }
@@ -144,15 +143,6 @@ export function AddTransactionDialog({
           </select>
         </div>
 
-        <label className="flex items-center gap-2.5 text-sm cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={planned}
-            onChange={(e) => setPlanned(e.target.checked)}
-            className="w-4 h-4 accent-accent"
-          />
-          <span>Planned (not actually spent yet)</span>
-        </label>
       </form>
     </Modal>
   )

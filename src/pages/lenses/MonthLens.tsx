@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine,
 } from 'recharts'
-import { ArrowDownRight, ArrowUpRight, TrendingUp, TrendingDown, Target } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Target } from 'lucide-react'
 import {
   useCategories, useMonthlyOpening, useRecurringRules, useSettings, useTransactionsInRange, useInsertTransactions,
 } from '@/hooks/queries'
@@ -60,55 +60,42 @@ export function MonthLens() {
 
   const series = useMemo(() => {
     const opening0 = opening?.opening_balance ?? 0
-    const byDayPlanned: Record<number, number> = {}
-    const byDayActual: Record<number, number> = {}
-    const byDayIncomePlanned: Record<number, number> = {}
-    const byDayIncomeActual: Record<number, number> = {}
-    const byDayExpensePlanned: Record<number, number> = {}
-    const byDayExpenseActual: Record<number, number> = {}
+    const byDay: Record<number, number> = {}
+    const byDayIncome: Record<number, number> = {}
+    const byDayExpense: Record<number, number> = {}
 
     for (const t of txs) {
       const d = parseInt(t.occurred_on.slice(8, 10), 10)
-      byDayPlanned[d] = (byDayPlanned[d] ?? 0) + Number(t.amount)
-      if (!t.planned) byDayActual[d] = (byDayActual[d] ?? 0) + Number(t.amount)
-      if (Number(t.amount) > 0) {
-        byDayIncomePlanned[d] = (byDayIncomePlanned[d] ?? 0) + Number(t.amount)
-        if (!t.planned) byDayIncomeActual[d] = (byDayIncomeActual[d] ?? 0) + Number(t.amount)
-      } else {
-        byDayExpensePlanned[d] = (byDayExpensePlanned[d] ?? 0) - Number(t.amount)
-        if (!t.planned) byDayExpenseActual[d] = (byDayExpenseActual[d] ?? 0) - Number(t.amount)
-      }
+      const amt = Number(t.amount)
+      byDay[d] = (byDay[d] ?? 0) + amt
+      if (amt > 0) byDayIncome[d] = (byDayIncome[d] ?? 0) + amt
+      else byDayExpense[d] = (byDayExpense[d] ?? 0) - amt
     }
     for (const inst of missingRuleInstances) {
       const d = parseInt(inst.date.slice(8, 10), 10)
-      byDayPlanned[d] = (byDayPlanned[d] ?? 0) + inst.amount
-      if (inst.amount > 0) byDayIncomePlanned[d] = (byDayIncomePlanned[d] ?? 0) + inst.amount
-      else byDayExpensePlanned[d] = (byDayExpensePlanned[d] ?? 0) - inst.amount
+      byDay[d] = (byDay[d] ?? 0) + inst.amount
+      if (inst.amount > 0) byDayIncome[d] = (byDayIncome[d] ?? 0) + inst.amount
+      else byDayExpense[d] = (byDayExpense[d] ?? 0) - inst.amount
     }
 
     const todayDate = today.getDate()
     const sameMonth = cursor.getFullYear() === today.getFullYear() && cursor.getMonth() === today.getMonth()
     const cutoff = sameMonth ? todayDate : lastDay
 
-    const arr: Array<{ day: number; forecast: number; actual: number | null }> = []
-    let forecast = opening0
-    let actual = opening0
+    const arr: Array<{ day: number; balance: number }> = []
+    let running = opening0
     for (let d = 1; d <= lastDay; d++) {
-      forecast += byDayPlanned[d] ?? 0
-      if (d <= cutoff) actual += byDayActual[d] ?? 0
+      running += byDay[d] ?? 0
       arr.push({
         day: d,
-        forecast: Math.round(forecast),
-        actual: d <= cutoff ? Math.round(actual) : null,
+        balance: Math.round(running),
       })
     }
 
-    const totalIncomePlanned = Object.values(byDayIncomePlanned).reduce((a, b) => a + b, 0)
-    const totalIncomeActual = Object.values(byDayIncomeActual).reduce((a, b) => a + b, 0)
-    const totalExpensePlanned = Object.values(byDayExpensePlanned).reduce((a, b) => a + b, 0)
-    const totalExpenseActual = Object.values(byDayExpenseActual).reduce((a, b) => a + b, 0)
+    const totalIncome = Object.values(byDayIncome).reduce((a, b) => a + b, 0)
+    const totalExpense = Object.values(byDayExpense).reduce((a, b) => a + b, 0)
 
-    const projectedEnd = arr[arr.length - 1]?.forecast ?? opening0
+    const projectedEnd = arr[arr.length - 1]?.balance ?? opening0
     const profit = projectedEnd - opening0
     return {
       arr,
@@ -116,22 +103,15 @@ export function MonthLens() {
       todayDay: cutoff,
       sameMonth,
       totals: {
-        incomePlanned: totalIncomePlanned,
-        incomeActual: totalIncomeActual,
-        expensePlanned: totalExpensePlanned,
-        expenseActual: totalExpenseActual,
+        income: totalIncome,
+        expense: totalExpense,
+        net: totalIncome - totalExpense,
         projectedEnd,
         profit,
-        currentActual: arr[cutoff - 1]?.actual ?? opening0,
-        currentForecast: arr[cutoff - 1]?.forecast ?? opening0,
+        currentBalance: arr[cutoff - 1]?.balance ?? opening0,
       },
     }
   }, [txs, missingRuleInstances, opening, cursor, lastDay, today])
-
-  const onTrack = series.totals.currentActual !== null
-    ? series.totals.currentActual >= series.totals.currentForecast
-    : true
-  const drift = series.totals.currentActual - series.totals.currentForecast
 
   const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
@@ -164,16 +144,15 @@ export function MonthLens() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <Kpi
           label="Current balance"
-          value={formatMoney(series.totals.currentActual, currency)}
+          value={formatMoney(series.totals.currentBalance, currency)}
           sub={series.sameMonth ? `As of day ${series.todayDay}` : 'End of month'}
           tone="default"
         />
         <Kpi
-          label="On track?"
-          value={onTrack ? 'Yes' : 'Behind'}
-          sub={`${drift >= 0 ? '+' : ''}${formatMoney(drift, currency)} vs plan`}
-          tone={onTrack ? 'positive' : 'negative'}
-          icon={onTrack ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+          label="Net"
+          value={formatMoney(series.totals.net, currency)}
+          sub="Income − expense"
+          tone={series.totals.net >= 0 ? 'positive' : 'negative'}
         />
         <Kpi
           label="Projected end"
@@ -184,8 +163,8 @@ export function MonthLens() {
         />
         <Kpi
           label="Spent / Earned"
-          value={formatMoney(series.totals.expenseActual, currency)}
-          sub={`Income ${formatMoney(series.totals.incomeActual, currency)}`}
+          value={formatMoney(series.totals.expense, currency)}
+          sub={`Income ${formatMoney(series.totals.income, currency)}`}
           tone="default"
         />
       </div>
@@ -197,25 +176,20 @@ export function MonthLens() {
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <div className="label">Forecast vs actual</div>
+            <div className="label">Month</div>
             <h2 className="font-semibold mt-0.5">Running balance</h2>
           </div>
           <div className="flex gap-3 text-xs">
-            <Legend swatch="bg-accent" label="Forecast" />
-            <Legend swatch="bg-positive" label="Actual" />
+            <Legend swatch="bg-accent" label="Balance" />
           </div>
         </div>
         <div className="h-72">
           <ResponsiveContainer>
             <AreaChart data={series.arr} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
               <defs>
-                <linearGradient id="forecast" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="balance" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="rgb(var(--accent))" stopOpacity={0.45} />
                   <stop offset="100%" stopColor="rgb(var(--accent))" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="actual" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="rgb(var(--positive))" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="rgb(var(--positive))" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="rgb(var(--border))" strokeDasharray="3 3" vertical={false} />
@@ -224,8 +198,7 @@ export function MonthLens() {
                      tickFormatter={(v) => formatMoney(v, currency).replace(/[^\d-]/g, '').slice(0, 6)} />
               <Tooltip content={<ChartTooltip currency={currency} />} />
               <ReferenceLine y={series.opening} stroke="rgb(var(--border-strong))" strokeDasharray="4 4" />
-              <Area type="monotone" dataKey="forecast" stroke="rgb(var(--accent))" strokeWidth={2} fill="url(#forecast)" />
-              <Area type="monotone" dataKey="actual" stroke="rgb(var(--positive))" strokeWidth={2} fill="url(#actual)" connectNulls={false} />
+              <Area type="monotone" dataKey="balance" stroke="rgb(var(--accent))" strokeWidth={2} fill="url(#balance)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -268,10 +241,10 @@ export function MonthLens() {
           items={[
             ...txs.map((t) => ({
               date: t.occurred_on, amount: Number(t.amount),
-              description: txLabel(t), planned: t.planned, _txId: t.id,
+              description: txLabel(t), _txId: t.id,
             })),
             ...missingRuleInstances.map((i) => ({
-              date: i.date, amount: i.amount, description: i.description, planned: true, _txId: undefined,
+              date: i.date, amount: i.amount, description: i.description, _txId: undefined,
             })),
           ]}
           fromIso={isoDate(today)}
@@ -336,7 +309,7 @@ function ChartTooltip({ active, payload, label, currency }: ChartTooltipProps) {
 }
 
 function UpcomingList({ items, fromIso, currency }: {
-  items: Array<{ date: string; amount: number; description: string; planned: boolean }>;
+  items: Array<{ date: string; amount: number; description: string }>;
   fromIso: string; currency: string
 }) {
   const start = new Date(fromIso + 'T00:00:00')
@@ -360,9 +333,7 @@ function UpcomingList({ items, fromIso, currency }: {
             </div>
             <div className="min-w-0">
               <div className="text-sm font-medium truncate">{i.description}</div>
-              <div className="text-xs text-fg-subtle stat-num">
-                {i.date}{i.planned && <span className="ml-2 chip !py-0 !px-1.5 !text-[10px]">planned</span>}
-              </div>
+              <div className="text-xs text-fg-subtle stat-num">{i.date}</div>
             </div>
           </div>
           <div className={`stat-num text-sm ${i.amount >= 0 ? 'text-positive' : 'text-negative'}`}>

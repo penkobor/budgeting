@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Beer, Check, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { Beer, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import {
   useCategories, useDeleteTransaction, useMonthlyOpening, useRecurringRules,
   useSettings, useTransactionsInRange, useUpsertTransaction,
@@ -59,60 +59,49 @@ export function Ledger() {
     return map
   }, [rules, txs, fromIso, toIso])
 
-  // Build rows with running balance
+  // Build rows with running balance — we no longer track actual-vs-planned;
+  // every transaction is a single 'plan' entry.
   const rows = useMemo(() => {
     const opening0 = opening?.opening_balance ?? 0
     const arr: Array<{
       day: number;
       date: string;
-      runningForecast: number;
-      runningActual: number | null;
-      incomePlanned: number;
-      incomeActual: number;
-      expensePlanned: number;
-      expenseActual: number;
+      runningBalance: number;
+      income: number;
+      expense: number;
       txs: Transaction[];
       pending: Array<{ rule_id: string; amount: number; description: string; categoryId: string | null }>;
     }> = []
-    let forecast = opening0
-    let actual = opening0
-    const sameMonth = cursor.getFullYear() === today.getFullYear() && cursor.getMonth() === today.getMonth()
-    const cutoff = sameMonth ? today.getDate() : lastDay
+    let balance = opening0
     for (let d = 1; d <= lastDay; d++) {
       const dayTxs = byDay[d] ?? []
       const dayPending = pendingByDay[d] ?? []
-      let dayForecast = 0
-      let dayActual = 0
-      let incPlan = 0, incAct = 0, expPlan = 0, expAct = 0
+      let dayDelta = 0
+      let inc = 0, exp = 0
       for (const t of dayTxs) {
         const a = Number(t.amount)
-        dayForecast += a
-        if (!t.planned) dayActual += a
-        if (a >= 0) { incPlan += a; if (!t.planned) incAct += a }
-        else { expPlan += -a; if (!t.planned) expAct += -a }
+        dayDelta += a
+        if (a >= 0) inc += a
+        else exp += -a
       }
       for (const p of dayPending) {
-        dayForecast += p.amount
-        if (p.amount >= 0) incPlan += p.amount
-        else expPlan += -p.amount
+        dayDelta += p.amount
+        if (p.amount >= 0) inc += p.amount
+        else exp += -p.amount
       }
-      forecast += dayForecast
-      if (d <= cutoff) actual += dayActual
+      balance += dayDelta
       arr.push({
         day: d,
         date: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
-        runningForecast: Math.round(forecast),
-        runningActual: d <= cutoff ? Math.round(actual) : null,
-        incomePlanned: incPlan,
-        incomeActual: incAct,
-        expensePlanned: expPlan,
-        expenseActual: expAct,
+        runningBalance: Math.round(balance),
+        income: inc,
+        expense: exp,
         txs: dayTxs,
         pending: dayPending,
       })
     }
     return arr
-  }, [byDay, pendingByDay, opening, cursor, lastDay, today])
+  }, [byDay, pendingByDay, opening, cursor, lastDay])
 
   const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
@@ -165,19 +154,6 @@ export function Ledger() {
     })
   }
 
-  const confirm = async (t: Transaction) => {
-    await upsertTx.mutateAsync({
-      id: t.id,
-      occurred_on: t.occurred_on,
-      amount: Number(t.amount),
-      description: t.description,
-      category_id: t.category_id,
-      recurring_rule_id: t.recurring_rule_id,
-      planned: false,
-      confirmed_at: new Date().toISOString(),
-    })
-  }
-
   return (
     <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto">
       <header className="flex flex-wrap items-center gap-3 justify-between">
@@ -207,7 +183,6 @@ export function Ledger() {
           const isPast = new Date(row.date) < new Date(today.toISOString().slice(0, 10))
           const dow = new Date(row.date + 'T00:00:00').getDay()
           const isWeekend = dow === 0 || dow === 6
-          const onTrackForDay = row.runningActual !== null && row.runningActual >= row.runningForecast
           const expanded = expandedDays.has(row.day)
           const entryCount = row.txs.length + row.pending.length
           const bgClass = isToday ? 'bg-accent/5' : isWeekend ? 'bg-bg-elev/30 hover:bg-bg-elev/50' : 'hover:bg-bg-elev/40'
@@ -252,8 +227,8 @@ export function Ledger() {
                   onClick={() => toggleDay(row.day)}
                   className="min-w-0 text-left"
                 >
-                  <div className={`font-semibold stat-num truncate ${row.runningForecast === 0 ? 'text-fg-muted' : row.runningForecast > 0 ? 'text-fg' : 'text-negative'}`}>
-                    {formatMoney(row.runningForecast, currency)}
+                  <div className={`font-semibold stat-num truncate ${row.runningBalance === 0 ? 'text-fg-muted' : row.runningBalance > 0 ? 'text-fg' : 'text-negative'}`}>
+                    {formatMoney(row.runningBalance, currency)}
                   </div>
                   <div className="text-xs text-fg-subtle">
                     {entryCount > 0
@@ -262,13 +237,13 @@ export function Ledger() {
                   </div>
                 </button>
                 <div className="text-right stat-num text-sm self-center">
-                  {row.incomePlanned > 0
-                    ? <span className="text-positive">+{formatMoney(row.incomePlanned, currency)}</span>
+                  {row.income > 0
+                    ? <span className="text-positive">+{formatMoney(row.income, currency)}</span>
                     : <span className="text-fg-subtle">—</span>}
                 </div>
                 <div className="text-right stat-num text-sm self-center">
-                  {row.expensePlanned > 0
-                    ? <span className="text-negative">−{formatMoney(row.expensePlanned, currency)}</span>
+                  {row.expense > 0
+                    ? <span className="text-negative">−{formatMoney(row.expense, currency)}</span>
                     : <span className="text-fg-subtle">—</span>}
                 </div>
               </div>
@@ -285,14 +260,9 @@ export function Ledger() {
               {DayBadge}
 
               <div className="md:text-right space-y-0.5">
-                <div className={`stat-num font-semibold ${row.runningForecast >= 0 ? 'text-fg' : 'text-negative'}`}>
-                  {formatMoney(row.runningForecast, currency)}
+                <div className={`stat-num font-semibold ${row.runningBalance >= 0 ? 'text-fg' : 'text-negative'}`}>
+                  {formatMoney(row.runningBalance, currency)}
                 </div>
-                {row.runningActual !== null && row.runningActual !== row.runningForecast && (
-                  <div className={`text-[11px] stat-num ${onTrackForDay ? 'text-positive' : 'text-negative'}`}>
-                    actual {formatMoney(row.runningActual, currency)}
-                  </div>
-                )}
               </div>
 
               <div className="space-y-1.5 min-w-0">
@@ -310,16 +280,11 @@ export function Ledger() {
                       className="w-1.5 h-1.5 rounded-full shrink-0"
                       style={{ background: t.category_id ? catMap[t.category_id]?.color ?? '#888' : '#888' }}
                     />
-                    <span className={`truncate ${t.planned ? 'text-fg-muted italic' : 'text-fg'}`}>{t.description?.trim() || (t.category_id ? catMap[t.category_id]?.name : null) || 'Untitled'}</span>
+                    <span className="truncate text-fg">{t.description?.trim() || (t.category_id ? catMap[t.category_id]?.name : null) || 'Untitled'}</span>
                     <span className={`stat-num text-xs ml-1 ${Number(t.amount) >= 0 ? 'text-positive' : 'text-negative'}`}>
                       {formatMoney(Number(t.amount), currency)}
                     </span>
                     <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {t.planned && (
-                        <button onClick={() => confirm(t)} title="Mark confirmed" className="btn-ghost !p-1">
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                      )}
                       <button onClick={() => setEditing(t)} className="btn-ghost !p-1" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
                       <button onClick={() => deleteTx.mutate(t.id)} className="btn-ghost !p-1 text-negative" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
@@ -346,20 +311,14 @@ export function Ledger() {
               </div>
 
               <div className="hidden md:block md:text-right stat-num text-sm">
-                {row.incomePlanned > 0 ? (
-                  <div className="text-positive">{formatMoney(row.incomePlanned, currency)}</div>
+                {row.income > 0 ? (
+                  <div className="text-positive">{formatMoney(row.income, currency)}</div>
                 ) : <div className="text-fg-subtle">—</div>}
-                {row.incomeActual !== row.incomePlanned && row.incomeActual > 0 && (
-                  <div className="text-[11px] text-fg-subtle">act {formatMoney(row.incomeActual, currency)}</div>
-                )}
               </div>
               <div className="hidden md:block md:text-right stat-num text-sm">
-                {row.expensePlanned > 0 ? (
-                  <div className="text-negative">{formatMoney(row.expensePlanned, currency)}</div>
+                {row.expense > 0 ? (
+                  <div className="text-negative">{formatMoney(row.expense, currency)}</div>
                 ) : <div className="text-fg-subtle">—</div>}
-                {row.expenseActual !== row.expensePlanned && row.expenseActual > 0 && (
-                  <div className="text-[11px] text-fg-subtle">act {formatMoney(row.expenseActual, currency)}</div>
-                )}
               </div>
             </div>
           )
@@ -375,7 +334,6 @@ export function Ledger() {
           initialAmount={Number(editing.amount)}
           initialDescription={editing.description ?? ''}
           initialCategoryId={editing.category_id}
-          initialPlanned={editing.planned}
         />
       )}
       {addForDate && (
