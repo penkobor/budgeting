@@ -210,7 +210,11 @@ export function Ledger() {
           const onTrackForDay = row.runningActual !== null && row.runningActual >= row.runningForecast
           const expanded = expandedDays.has(row.day)
           const entryCount = row.txs.length + row.pending.length
-          const dayNet = row.incomePlanned - row.expensePlanned
+          // Past + today → realised actuals; future → planned forecast.
+          const isFuture = new Date(row.date) > new Date(today.toISOString().slice(0, 10))
+          const dayNet = isFuture
+            ? row.incomePlanned - row.expensePlanned
+            : row.incomeActual - row.expenseActual
           const bgClass = isToday ? 'bg-accent/5' : isWeekend ? 'bg-bg-elev/30 hover:bg-bg-elev/50' : 'hover:bg-bg-elev/40'
 
           // Reused day-badge cluster (chevron + numbered button)
