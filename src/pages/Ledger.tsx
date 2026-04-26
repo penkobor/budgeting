@@ -248,7 +248,7 @@ export function Ledger() {
       {/* Floating glass pill toolbar — sticky relative to the page wrapper so
           it stays pinned for the whole scroll range, not just while the title
           is still visible. */}
-      <div className="sticky top-[calc(env(safe-area-inset-top)+1rem)] md:top-4 z-30 flex justify-end pointer-events-none">
+      <div className="sticky top-[calc(env(safe-area-inset-top)+0.625rem)] md:top-4 z-30 flex justify-end pointer-events-none">
         <div className="flex gap-2 items-center pointer-events-auto">
           {selectMode ? (
             <>
