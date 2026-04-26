@@ -61,8 +61,9 @@ export function Ledger() {
 
   // Build rows with running balance — we no longer track actual-vs-planned;
   // every transaction is a single 'plan' entry. Pending rule instances still
-  // flow into the running balance (so totals match Dashboard / Forecast), but
-  // are never surfaced as actionable rows.
+  // flow into the running balance (so totals match Dashboard / Forecast) and
+  // are surfaced in the expanded row as editable templated entries (editing
+  // creates a per-day override without touching the rule itself).
   const rows = useMemo(() => {
     const opening0 = opening?.opening_balance ?? 0
     const arr: Array<{
@@ -72,6 +73,7 @@ export function Ledger() {
       income: number;
       expense: number;
       txs: Transaction[];
+      pending: Array<{ rule_id: string; amount: number; description: string; categoryId: string | null }>;
     }> = []
     let balance = opening0
     for (let d = 1; d <= lastDay; d++) {
@@ -98,6 +100,7 @@ export function Ledger() {
         income: inc,
         expense: exp,
         txs: dayTxs,
+        pending: dayPending,
       })
     }
     return arr
@@ -107,6 +110,10 @@ export function Ledger() {
 
   // Edit dialog state
   const [editing, setEditing] = useState<Transaction | null>(null)
+  const [editingPending, setEditingPending] = useState<
+    | { rule_id: string; date: string; amount: number; description: string; categoryId: string | null }
+    | null
+  >(null)
   const [addForDate, setAddForDate] = useState<string | null>(null)
 
   // Collapsible day rows. By default only today (or last day of past months) is expanded.
@@ -274,7 +281,7 @@ export function Ledger() {
           const dow = new Date(row.date + 'T00:00:00').getDay()
           const isWeekend = dow === 0 || dow === 6
           const expanded = expandedDays.has(row.day)
-          const entryCount = row.txs.length
+          const entryCount = row.txs.length + row.pending.length
           const isSelected = selectedDays.has(row.day)
           const bgClass = isSelected
             ? 'bg-accent/10 hover:bg-accent/15'
@@ -371,7 +378,7 @@ export function Ledger() {
               </div>
 
               <div className="space-y-1.5 min-w-0">
-                {row.txs.length === 0 && (
+                {row.txs.length === 0 && row.pending.length === 0 && (
                   <button
                     onClick={() => setAddForDate(row.date)}
                     className="text-xs text-fg-subtle hover:text-accent transition-colors"
@@ -395,7 +402,38 @@ export function Ledger() {
                     </div>
                   </div>
                 ))}
-                {/* pending rule instances no longer surface in the ledger */}
+                {row.pending.map((p) => (
+                  <div
+                    key={`${p.rule_id}-${row.day}`}
+                    className="group flex items-center gap-2 text-sm min-w-0 text-fg-muted"
+                    title="From a recurring rule — edit to override for this day only."
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shrink-0 ring-1 ring-border"
+                      style={{ background: p.categoryId ? catMap[p.categoryId]?.color ?? 'transparent' : 'transparent' }}
+                    />
+                    <span className="truncate">{p.description}</span>
+                    <span className="text-[10px] text-fg-subtle uppercase tracking-wider shrink-0">recurring</span>
+                    <span className={`stat-num text-xs ml-1 ${p.amount >= 0 ? 'text-positive' : 'text-negative'}`}>
+                      {formatMoney(p.amount, currency)}
+                    </span>
+                    <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => setEditingPending({
+                          rule_id: p.rule_id,
+                          date: row.date,
+                          amount: p.amount,
+                          description: p.description,
+                          categoryId: p.categoryId,
+                        })}
+                        className="btn-ghost !p-1"
+                        title="Edit for this day (creates a per-day override, doesn't change the rule)"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
                 <button
                   onClick={() => setAddForDate(row.date)}
                   className="text-[11px] text-fg-subtle hover:text-accent transition-colors"
@@ -428,6 +466,18 @@ export function Ledger() {
           initialAmount={Number(editing.amount)}
           initialDescription={editing.description ?? ''}
           initialCategoryId={editing.category_id}
+          initialRecurringRuleId={editing.recurring_rule_id ?? null}
+        />
+      )}
+      {editingPending && (
+        <AddTransactionDialog
+          open={!!editingPending}
+          onOpenChange={(o) => { if (!o) setEditingPending(null) }}
+          initialDate={editingPending.date}
+          initialAmount={editingPending.amount}
+          initialDescription={editingPending.description}
+          initialCategoryId={editingPending.categoryId}
+          initialRecurringRuleId={editingPending.rule_id}
         />
       )}
       {addForDate && (

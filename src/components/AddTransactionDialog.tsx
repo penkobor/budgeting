@@ -10,12 +10,19 @@ interface Props {
   initialAmount?: number
   initialDescription?: string
   initialCategoryId?: string | null
+  /**
+   * When set, the saved transaction is linked to this recurring rule for that
+   * specific date — effectively overriding the rule's default for one
+   * occurrence without touching the template.
+   */
+  initialRecurringRuleId?: string | null
   editId?: string
 }
 
 export function AddTransactionDialog({
   open, onOpenChange,
-  initialDate, initialAmount, initialDescription, initialCategoryId, editId,
+  initialDate, initialAmount, initialDescription, initialCategoryId,
+  initialRecurringRuleId, editId,
 }: Props) {
   const { data: categories } = useCategories()
   const upsert = useUpsertTransaction()
@@ -49,6 +56,7 @@ export function AddTransactionDialog({
       amount: signed,
       description: description || null,
       category_id: categoryId || null,
+      recurring_rule_id: initialRecurringRuleId ?? null,
       // App is a planning tool now — we don't track actual-vs-planned anymore.
       // We always write `planned: true` to satisfy the legacy NOT NULL column.
       planned: true,
