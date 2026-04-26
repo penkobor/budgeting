@@ -141,9 +141,12 @@ export function PlanLens() {
 
     let baseline = opening0
     let withDrafts = opening0
-    let lowestBaseline = baseline
-    let lowestWith = withDrafts
-    let lowestWithDate = isoDate(horizonStart)
+    // Track the running lows only over dates >= today. Initialise to +Inf so
+    // the first "ahead" day always seeds them, regardless of opening balance.
+    let lowestBaseline = Number.POSITIVE_INFINITY
+    let lowestWith = Number.POSITIVE_INFINITY
+    const todayIso = isoDate(today)
+    let lowestWithDate = todayIso
 
     // Pre-compute the last day of each month in the horizon for sampling
     const monthEnds = new Set<string>()
@@ -159,10 +162,14 @@ export function PlanLens() {
       const iso = isoDate(cursor)
       baseline += txByDay[iso] ?? 0
       withDrafts += (txByDay[iso] ?? 0) + (draftByDay[iso] ?? 0)
-      if (baseline < lowestBaseline) lowestBaseline = baseline
-      if (withDrafts < lowestWith) {
-        lowestWith = withDrafts
-        lowestWithDate = iso
+      // Only track "lowest balance ahead" from today onwards — past dips are
+      // history, not something the user can act on.
+      if (iso >= todayIso) {
+        if (baseline < lowestBaseline) lowestBaseline = baseline
+        if (withDrafts < lowestWith) {
+          lowestWith = withDrafts
+          lowestWithDate = iso
+        }
       }
       if (monthEnds.has(iso)) {
         series.push({
@@ -174,6 +181,11 @@ export function PlanLens() {
       }
       cursor.setDate(cursor.getDate() + 1)
     }
+
+    // Defensive: if horizon ended before today (shouldn't happen with current
+    // setup), fall back to the final balance.
+    if (!Number.isFinite(lowestBaseline)) lowestBaseline = baseline
+    if (!Number.isFinite(lowestWith)) lowestWith = withDrafts
 
     return {
       opening: opening0,
