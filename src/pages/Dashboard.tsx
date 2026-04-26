@@ -1,15 +1,17 @@
 import { useSearchParams } from 'react-router-dom'
-import { Sun, Calendar, CalendarDays, TrendingUp } from 'lucide-react'
+import { Sun, Calendar, CalendarDays, TrendingUp, ShoppingBag } from 'lucide-react'
 import { TodayLens } from './lenses/TodayLens'
 import { WeekLens } from './lenses/WeekLens'
 import { MonthLens } from './lenses/MonthLens'
 import { ForecastLens } from './lenses/ForecastLens'
+import { PlanLens } from './lenses/PlanLens'
 
 const LENSES = [
   { id: 'today', label: 'Today', icon: Sun },
   { id: 'week', label: 'Week', icon: Calendar },
   { id: 'month', label: 'Month', icon: CalendarDays },
   { id: 'forecast', label: 'Forecast', icon: TrendingUp },
+  { id: 'plan', label: 'Plan', icon: ShoppingBag },
 ] as const
 
 type LensId = typeof LENSES[number]['id']
@@ -53,6 +55,7 @@ export function Dashboard() {
       {lens === 'week' && <WeekLens />}
       {lens === 'month' && <MonthLens />}
       {lens === 'forecast' && <ForecastLens />}
+      {lens === 'plan' && <PlanLens />}
     </div>
   )
 }
