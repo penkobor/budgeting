@@ -23,7 +23,7 @@ Polish pass on the mobile experience after the user installed the PWA on iPhone 
 - [[BUDG-002 - Plan]] — broken-down subtasks for each feedback item
 
 ### Implementation Log
-- _none yet — populated as sessions complete_
+- [[BUDG-002 - 2026-04-26 - mobile-polish-pass]] — all four ST1–ST4 subtasks shipped in one session
 
 ### QA
 - _none yet_
