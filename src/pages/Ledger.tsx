@@ -287,15 +287,6 @@ export function Ledger() {
       )}
 
       <div className="card overflow-hidden">
-        {/* Header row */}
-        <div className="hidden md:grid grid-cols-[60px_140px_1fr_140px_140px] gap-3 px-4 py-2.5 border-b border-border text-xs label sticky top-[64px] bg-bg-card z-10">
-          <div>Day</div>
-          <div className="text-right">Balance</div>
-          <div>Entries</div>
-          <div className="text-right text-positive">Income</div>
-          <div className="text-right text-negative">Spending</div>
-        </div>
-
         {rows.map((row) => {
           const isToday = row.date === today.toISOString().slice(0, 10)
           const isPast = new Date(row.date) < new Date(today.toISOString().slice(0, 10))
