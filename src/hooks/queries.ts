@@ -150,13 +150,38 @@ export function useMonthlyOpening(monthIso: string) {
   return useQuery({
     queryKey: ['monthly_opening', monthIso],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // 1. Walk all anchors (explicit openings) once and pick the latest one
+      //    whose month is <= monthIso. That row is the truth.
+      const { data: openings, error: oErr } = await supabase
         .from('monthly_openings')
         .select('*')
-        .eq('month', monthIso)
-        .maybeSingle()
-      if (error) throw error
-      return data as MonthlyOpening | null
+        .lte('month', monthIso)
+        .order('month', { ascending: true })
+      if (oErr) throw oErr
+      const anchor = (openings ?? [])[(openings ?? []).length - 1] as MonthlyOpening | undefined
+      if (!anchor) return null
+      // If the anchor IS the requested month, we're done.
+      if (anchor.month === monthIso) return anchor
+      // 2. Otherwise the effective opening for monthIso is the anchor opening plus
+      //    the *realised* running balance accrued from anchor.month up to the day
+      //    before monthIso. We exclude `planned: true` rows so an un-confirmed
+      //    forecast doesn't pollute the next month's opening.
+      const { data: txs, error: tErr } = await supabase
+        .from('transactions')
+        .select('amount,occurred_on,planned')
+        .gte('occurred_on', anchor.month)
+        .lt('occurred_on', monthIso)
+        .eq('planned', false)
+      if (tErr) throw tErr
+      const sum = (txs ?? []).reduce((s, t) => s + Number(t.amount), 0)
+      // Keep the schema shape; mark as derived so consumers can tell.
+      return {
+        ...anchor,
+        month: monthIso,
+        opening_balance: anchor.opening_balance + sum,
+        // Surface the source month so Settings can render a hint.
+        derived_from: anchor.month,
+      } as MonthlyOpening & { derived_from?: string }
     },
   })
 }

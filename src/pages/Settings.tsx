@@ -101,7 +101,14 @@ export function SettingsPage() {
           </button>
         </div>
         {opening && (
-          <div className="text-xs text-fg-subtle stat-num">Current: {opening.opening_balance}</div>
+          <div className="text-xs text-fg-subtle stat-num">
+            Current: {opening.opening_balance}
+            {(opening as { derived_from?: string }).derived_from && (
+              <span className="text-fg-muted ml-2">
+                · auto-derived from {(opening as { derived_from?: string }).derived_from}
+              </span>
+            )}
+          </div>
         )}
       </section>
 
