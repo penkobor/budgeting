@@ -285,12 +285,12 @@ export function Ledger() {
               {DayBadge}
 
               <div className="md:text-right space-y-0.5">
-                <div className={`stat-num font-semibold ${row.runningActual !== null ? (onTrackForDay ? 'text-positive' : 'text-negative') : 'text-fg'}`}>
-                  {formatMoney(row.runningActual ?? row.runningForecast, currency)}
+                <div className={`stat-num font-semibold ${row.runningForecast >= 0 ? 'text-fg' : 'text-negative'}`}>
+                  {formatMoney(row.runningForecast, currency)}
                 </div>
                 {row.runningActual !== null && row.runningActual !== row.runningForecast && (
-                  <div className="text-[11px] text-fg-subtle stat-num">
-                    plan {formatMoney(row.runningForecast, currency)}
+                  <div className={`text-[11px] stat-num ${onTrackForDay ? 'text-positive' : 'text-negative'}`}>
+                    actual {formatMoney(row.runningActual, currency)}
                   </div>
                 )}
               </div>
