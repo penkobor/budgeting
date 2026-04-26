@@ -101,7 +101,7 @@ export function Layout() {
 
       {/* Mobile bottom nav — floating Liquid Glass pill, concentric with iPhone screen curve */}
       <nav
-        className="glass md:hidden fixed bottom-0 inset-x-4 z-30 rounded-[44px] mb-[max(env(safe-area-inset-bottom),6px)] overflow-hidden"
+        className="glass md:hidden fixed bottom-0 inset-x-4 z-30 rounded-[44px] mb-[calc(max(env(safe-area-inset-bottom),6px)-4px)] overflow-hidden"
       >
         <div className="grid grid-cols-5">
           {nav.map(({ to, label, icon: Icon, end }) => (
@@ -123,10 +123,10 @@ export function Layout() {
         </div>
       </nav>
 
-      {/* Mobile FAB (sits above bottom nav + home indicator) */}
+      {/* Mobile FAB — Liquid Glass, sits above bottom nav + home indicator */}
       <button
         onClick={() => setAddOpen(true)}
-        className="md:hidden fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40 w-14 h-14 rounded-full bg-accent text-accent-fg shadow-soft grid place-items-center active:scale-95"
+        className="glass md:hidden fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40 w-14 h-14 rounded-full text-accent grid place-items-center active:scale-95"
         aria-label="Add transaction"
       >
         <Plus className="w-6 h-6" />

@@ -30,8 +30,9 @@ export function Modal({ open, onOpenChange, title, description, children, footer
         <Dialog.Overlay className="fixed inset-0 bg-black/55 backdrop-blur-sm animate-fade-in z-40" />
         <Dialog.Content
           className="fixed inset-0 z-50 flex max-md:items-end md:items-center md:justify-center pointer-events-none outline-none"
-          // Radix focuses the content on open; without a tabIndex on the wrapper
-          // the inner motion.div would still receive focus from autoFocus children.
+          // Prevent the dialog from auto-focusing any input on open — that would
+          // immediately raise the iOS keyboard. Users tap the field themselves.
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <motion.div
             drag={typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'y' : false}

@@ -98,7 +98,6 @@ export function AddTransactionDialog({
           <div>
             <div className="label mb-1.5">Amount</div>
             <input
-              autoFocus
               className="input stat-num text-lg"
               inputMode="decimal"
               placeholder="0"

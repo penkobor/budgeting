@@ -54,6 +54,12 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover { background: rgb(var(--fg-subtle)); background-clip: padding-box; }
 
+/* On touch devices (mobile) hide scrollbars completely while preserving scroll. */
+@media (hover: none) and (pointer: coarse) {
+  ::-webkit-scrollbar { display: none; width: 0; height: 0; }
+  * { scrollbar-width: none; -ms-overflow-style: none; }
+}
+
 :focus-visible {
   outline: 2px solid rgb(var(--accent));
   outline-offset: 2px;
