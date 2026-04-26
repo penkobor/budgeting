@@ -34,16 +34,16 @@ export function Dashboard() {
 
   return (
     <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto">
-      {/* Period switcher — sticky glass bar at the very top of the scroll viewport */}
-      <div className="sticky top-0 z-30 -mx-4 md:-mx-8 px-4 md:px-8 py-2 -mt-4 md:-mt-8 mb-2 bg-bg-card/55 backdrop-blur-xl backdrop-saturate-150 border-b border-border/60">
-        <div className="flex gap-2 overflow-x-auto -mx-1 px-1 py-1">
+      {/* Period switcher — floating liquid-glass pills (no bar bg, each chip is its own glass element) */}
+      <div className="sticky top-0 z-30 -mx-4 md:-mx-8 px-4 md:px-8 py-2 -mt-4 md:-mt-8 mb-2 pointer-events-none">
+        <div className="flex gap-2 overflow-x-auto -mx-1 px-1 py-1 pointer-events-auto">
           {LENSES.map(({ id, label, icon: Icon }) => {
             const active = lens === id
             return (
               <button
                 key={id}
                 onClick={() => setLens(id)}
-                className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${active ? 'bg-accent text-accent-fg border-accent' : 'border-border text-fg-muted hover:text-fg hover:border-border-strong'}`}
+                className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${active ? 'glass !bg-accent !border-accent text-accent-fg' : 'glass text-fg hover:text-fg'}`}
               >
                 <Icon className="w-4 h-4" />
                 {label}

@@ -239,12 +239,12 @@ export function Ledger() {
 
   return (
     <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto pb-32">
-      <header className="sticky top-0 z-30 -mx-4 md:-mx-8 px-4 md:px-8 py-3 -mt-4 md:-mt-8 mb-2 bg-bg-card/55 backdrop-blur-xl backdrop-saturate-150 border-b border-border/60 flex flex-wrap items-center gap-3 justify-between">
-        <div>
+      <header className="sticky top-0 z-30 -mx-4 md:-mx-8 px-4 md:px-8 py-3 -mt-4 md:-mt-8 mb-2 flex flex-wrap items-center gap-3 justify-between pointer-events-none">
+        <div className="pointer-events-auto">
           <div className="label">Ledger</div>
           <h1 className="text-xl md:text-3xl font-semibold mt-0.5">{monthLabel}</h1>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center pointer-events-auto">
           {selectMode ? (
             <>
               <span className="text-xs text-fg-muted stat-num px-1">
@@ -252,7 +252,7 @@ export function Ledger() {
               </span>
               <button
                 onClick={() => { setSelectMode(false); setSelectedDays(new Set()) }}
-                className="btn-outline"
+                className="glass btn"
                 title="Exit selection"
               >
                 <X className="w-4 h-4" />
@@ -262,16 +262,16 @@ export function Ledger() {
           ) : (
             <button
               onClick={() => setSelectMode(true)}
-              className="btn-outline"
+              className="glass btn"
               title="Select days to summarise"
             >
               <ListChecks className="w-4 h-4" />
               <span className="hidden md:inline">Select</span>
             </button>
           )}
-          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} className="btn-outline">←</button>
-          <button onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))} className="btn-outline">Today</button>
-          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="btn-outline">→</button>
+          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} className="glass btn">←</button>
+          <button onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))} className="glass btn">Today</button>
+          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="glass btn">→</button>
         </div>
       </header>
 
