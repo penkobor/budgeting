@@ -239,10 +239,10 @@ export function Ledger() {
 
   return (
     <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto pb-32">
-      <header className="flex flex-wrap items-center gap-3 justify-between">
+      <header className="sticky top-0 z-30 -mx-4 md:-mx-8 px-4 md:px-8 py-3 -mt-4 md:-mt-8 mb-2 bg-bg-card/55 backdrop-blur-xl backdrop-saturate-150 border-b border-border/60 flex flex-wrap items-center gap-3 justify-between">
         <div>
           <div className="label">Ledger</div>
-          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">{monthLabel}</h1>
+          <h1 className="text-xl md:text-3xl font-semibold mt-0.5">{monthLabel}</h1>
         </div>
         <div className="flex gap-2 items-center">
           {selectMode ? (
@@ -283,7 +283,7 @@ export function Ledger() {
 
       <div className="card overflow-hidden">
         {/* Header row */}
-        <div className="hidden md:grid grid-cols-[60px_140px_1fr_140px_140px] gap-3 px-4 py-2.5 border-b border-border text-xs label sticky top-0 bg-bg-card z-10">
+        <div className="hidden md:grid grid-cols-[60px_140px_1fr_140px_140px] gap-3 px-4 py-2.5 border-b border-border text-xs label sticky top-[64px] bg-bg-card z-10">
           <div>Day</div>
           <div className="text-right">Balance</div>
           <div>Entries</div>
