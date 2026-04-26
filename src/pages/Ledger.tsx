@@ -210,39 +210,80 @@ export function Ledger() {
           const onTrackForDay = row.runningActual !== null && row.runningActual >= row.runningForecast
           const expanded = expandedDays.has(row.day)
           const entryCount = row.txs.length + row.pending.length
+          const dayNet = row.incomePlanned - row.expensePlanned
+          const bgClass = isToday ? 'bg-accent/5' : isWeekend ? 'bg-bg-elev/30 hover:bg-bg-elev/50' : 'hover:bg-bg-elev/40'
+
+          // Reused day-badge cluster (chevron + numbered button)
+          const DayBadge = (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => toggleDay(row.day)}
+                aria-expanded={expanded}
+                aria-label={expanded ? 'Collapse day' : 'Expand day'}
+                className="shrink-0 w-6 h-6 grid place-items-center rounded-md text-fg-subtle hover:text-fg hover:bg-bg-elev transition-colors"
+              >
+                <ChevronRight className={`w-4 h-4 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleDay(row.day)}
+                className={`relative w-7 h-7 grid place-items-center rounded-lg text-xs font-semibold stat-num transition-transform active:scale-95 ${isToday ? 'bg-accent text-accent-fg' : isPast ? 'bg-bg-elev text-fg-muted' : 'border border-border text-fg-muted'}`}
+                title={expanded ? 'Collapse' : 'Expand'}
+              >
+                {row.day}
+                {isWeekend && !isToday && (
+                  <Beer aria-hidden className="absolute -top-1 -right-1 w-3 h-3 text-amber-400 drop-shadow" />
+                )}
+              </button>
+            </div>
+          )
+
+          // Collapsed compact layout — matches design feedback 2
+          if (!expanded) {
+            return (
+              <div
+                key={row.day}
+                ref={isToday ? todayRowRef : undefined}
+                className={`grid grid-cols-[auto_1fr_auto_auto] md:grid-cols-[60px_1fr_120px_120px] gap-3 px-4 py-3 border-b border-border last:border-b-0 transition-colors ${bgClass}`}
+              >
+                {DayBadge}
+                <button
+                  type="button"
+                  onClick={() => toggleDay(row.day)}
+                  className="min-w-0 text-left"
+                >
+                  <div className={`font-semibold stat-num truncate ${dayNet === 0 ? 'text-fg-muted' : dayNet > 0 ? 'text-positive' : 'text-negative'}`}>
+                    Net: {dayNet >= 0 ? '+' : '−'}{formatMoney(Math.abs(dayNet), currency)}
+                  </div>
+                  <div className="text-xs text-fg-subtle">
+                    {entryCount > 0
+                      ? <>{entryCount} {entryCount === 1 ? 'entry' : 'entries'} · tap to expand</>
+                      : <span className="hover:text-accent transition-colors">no entries · tap to add</span>}
+                  </div>
+                </button>
+                <div className="text-right stat-num text-sm self-center">
+                  {row.incomePlanned > 0
+                    ? <span className="text-positive">+{formatMoney(row.incomePlanned, currency)}</span>
+                    : <span className="text-fg-subtle">—</span>}
+                </div>
+                <div className="text-right stat-num text-sm self-center">
+                  {row.expensePlanned > 0
+                    ? <span className="text-negative">−{formatMoney(row.expensePlanned, currency)}</span>
+                    : <span className="text-fg-subtle">—</span>}
+                </div>
+              </div>
+            )
+          }
+
+          // Expanded full layout — keeps balance column + per-entry rows
           return (
             <div
               key={row.day}
               ref={isToday ? todayRowRef : undefined}
-              className={`grid md:grid-cols-[60px_140px_1fr_140px_140px] gap-3 px-4 py-3 border-b border-border last:border-b-0 transition-colors ${isToday ? 'bg-accent/5' : isWeekend ? 'bg-bg-elev/30 hover:bg-bg-elev/50' : 'hover:bg-bg-elev/40'}`}
+              className={`grid md:grid-cols-[60px_140px_1fr_140px_140px] gap-3 px-4 py-3 border-b border-border last:border-b-0 transition-colors ${bgClass}`}
             >
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => toggleDay(row.day)}
-                  aria-expanded={expanded}
-                  aria-label={expanded ? 'Collapse day' : 'Expand day'}
-                  className="shrink-0 w-6 h-6 grid place-items-center rounded-md text-fg-subtle hover:text-fg hover:bg-bg-elev transition-colors"
-                >
-                  <ChevronRight
-                    className={`w-4 h-4 transition-transform ${expanded ? 'rotate-90' : ''}`}
-                  />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleDay(row.day)}
-                  className={`relative w-7 h-7 grid place-items-center rounded-lg text-xs font-semibold stat-num transition-transform active:scale-95 ${isToday ? 'bg-accent text-accent-fg' : isPast ? 'bg-bg-elev text-fg-muted' : 'border border-border text-fg-muted'}`}
-                  title={expanded ? 'Collapse' : 'Expand'}
-                >
-                  {row.day}
-                  {isWeekend && !isToday && (
-                    <Beer
-                      aria-hidden
-                      className="absolute -top-1 -right-1 w-3 h-3 text-amber-400 drop-shadow"
-                    />
-                  )}
-                </button>
-              </div>
+              {DayBadge}
 
               <div className="md:text-right space-y-0.5">
                 <div className={`stat-num font-semibold ${row.runningActual !== null ? (onTrackForDay ? 'text-positive' : 'text-negative') : 'text-fg'}`}>
@@ -256,17 +297,7 @@ export function Ledger() {
               </div>
 
               <div className="space-y-1.5 min-w-0">
-                {!expanded && entryCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => toggleDay(row.day)}
-                    className="text-xs text-fg-muted hover:text-accent transition-colors text-left"
-                  >
-                    {entryCount} {entryCount === 1 ? 'entry' : 'entries'}
-                    <span className="text-fg-subtle"> · tap to expand</span>
-                  </button>
-                )}
-                {!expanded && entryCount === 0 && (
+                {row.txs.length === 0 && row.pending.length === 0 && (
                   <button
                     onClick={() => setAddForDate(row.date)}
                     className="text-xs text-fg-subtle hover:text-accent transition-colors"
@@ -274,15 +305,7 @@ export function Ledger() {
                     + add entry
                   </button>
                 )}
-                {expanded && row.txs.length === 0 && row.pending.length === 0 && (
-                  <button
-                    onClick={() => setAddForDate(row.date)}
-                    className="text-xs text-fg-subtle hover:text-accent transition-colors"
-                  >
-                    + add entry
-                  </button>
-                )}
-                {expanded && row.txs.map((t) => (
+                {row.txs.map((t) => (
                   <div key={t.id} className="group flex items-center gap-2 text-sm min-w-0">
                     <span
                       className="w-1.5 h-1.5 rounded-full shrink-0"
@@ -303,7 +326,7 @@ export function Ledger() {
                     </div>
                   </div>
                 ))}
-                {expanded && row.pending.map((p) => (
+                {row.pending.map((p) => (
                   <div key={`${p.rule_id}-${row.day}`} className="flex items-center gap-2 text-sm min-w-0 text-fg-muted italic">
                     <span className="w-1.5 h-1.5 rounded-full bg-fg-subtle shrink-0" />
                     <span className="truncate">{p.description}</span>
@@ -315,14 +338,12 @@ export function Ledger() {
                     </button>
                   </div>
                 ))}
-                {expanded && (
-                  <button
-                    onClick={() => setAddForDate(row.date)}
-                    className="text-[11px] text-fg-subtle hover:text-accent transition-colors"
-                  >
-                    + add entry
-                  </button>
-                )}
+                <button
+                  onClick={() => setAddForDate(row.date)}
+                  className="text-[11px] text-fg-subtle hover:text-accent transition-colors"
+                >
+                  + add entry
+                </button>
               </div>
 
               <div className="hidden md:block md:text-right stat-num text-sm">
