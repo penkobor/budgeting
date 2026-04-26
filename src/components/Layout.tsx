@@ -41,7 +41,7 @@ export function Layout() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Sidebar */}
+      {/* Sidebar (desktop only) */}
       <aside className="hidden md:flex w-64 flex-col border-r border-border bg-bg-elev/50 backdrop-blur-sm">
         <div className="px-5 py-5 flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent to-positive grid place-items-center text-accent-fg font-bold">
@@ -99,8 +99,10 @@ export function Layout() {
         </div>
       </aside>
 
-      {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border bg-bg-elev/90 backdrop-blur-md">
+      {/* Mobile bottom nav — floating Liquid Glass pill */}
+      <nav
+        className="glass md:hidden fixed bottom-0 inset-x-3 z-30 rounded-3xl mb-[max(env(safe-area-inset-bottom),8px)] overflow-hidden"
+      >
         <div className="grid grid-cols-5">
           {nav.map(({ to, label, icon: Icon, end }) => (
             <NavLink
@@ -109,7 +111,7 @@ export function Layout() {
               end={end}
               className={({ isActive }) =>
                 cn(
-                  'flex flex-col items-center justify-center py-2 text-[10px] gap-0.5',
+                  'flex flex-col items-center justify-center py-2.5 text-[10px] gap-0.5 transition-colors',
                   isActive ? 'text-accent' : 'text-fg-muted'
                 )
               }
@@ -121,17 +123,17 @@ export function Layout() {
         </div>
       </nav>
 
-      {/* Mobile FAB */}
+      {/* Mobile FAB (sits above bottom nav + home indicator) */}
       <button
         onClick={() => setAddOpen(true)}
-        className="md:hidden fixed right-4 bottom-20 z-40 w-14 h-14 rounded-full bg-accent text-accent-fg shadow-soft grid place-items-center active:scale-95"
+        className="md:hidden fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40 w-14 h-14 rounded-full bg-accent text-accent-fg shadow-soft grid place-items-center active:scale-95"
         aria-label="Add transaction"
       >
         <Plus className="w-6 h-6" />
       </button>
 
-      {/* Main */}
-      <main className="flex-1 min-w-0 pb-20 md:pb-0">
+      {/* Main (mobile: padded for Dynamic Island + bottom nav; desktop: no extra padding) */}
+      <main className="flex-1 min-w-0 pt-[max(env(safe-area-inset-top),12px)] pb-[calc(5rem+env(safe-area-inset-bottom))] md:pt-0 md:pb-0">
         <Outlet />
       </main>
 

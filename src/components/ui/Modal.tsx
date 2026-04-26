@@ -20,7 +20,7 @@ export function Modal({ open, onOpenChange, title, description, children, footer
         <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm animate-fade-in z-40" />
         <Dialog.Content
           className={`fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[92vw] ${sizeClass}
-                      card p-6 animate-slide-up`}
+                      glass rounded-2xl p-6 animate-slide-up`}
         >
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
