@@ -28,8 +28,29 @@ export default {
         warning: 'rgb(var(--warning) / <alpha-value>)',
       },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+        // Apple system stack — uses San Francisco on macOS/iOS, Segoe UI on Windows, Roboto on Android, and falls back gracefully.
+        sans: [
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"SF Pro Text"',
+          '"SF Pro Display"',
+          '"Helvetica Neue"',
+          'Helvetica',
+          'Arial',
+          'system-ui',
+          'sans-serif',
+          '"Apple Color Emoji"',
+          '"Segoe UI Emoji"',
+        ],
+        mono: [
+          'ui-monospace',
+          '"SF Mono"',
+          'Menlo',
+          'Monaco',
+          '"Cascadia Mono"',
+          'Consolas',
+          'monospace',
+        ],
       },
       boxShadow: {
         soft: '0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.06)',

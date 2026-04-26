@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -40,7 +38,10 @@ html, body, #root { height: 100%; }
 
 body {
   @apply bg-bg text-fg font-sans antialiased;
-  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  /* SF Pro / system font defaults — drop Inter-specific stylistic sets. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }

@@ -253,7 +253,7 @@ export function Ledger() {
                   className="min-w-0 text-left"
                 >
                   <div className={`font-semibold stat-num truncate ${row.runningForecast === 0 ? 'text-fg-muted' : row.runningForecast > 0 ? 'text-fg' : 'text-negative'}`}>
-                    Total: {formatMoney(row.runningForecast, currency)}
+                    {formatMoney(row.runningForecast, currency)}
                   </div>
                   <div className="text-xs text-fg-subtle">
                     {entryCount > 0
