@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Beer, ChevronRight, ListChecks, Pencil, SquareCheckBig, Trash2, X } from 'lucide-react'
+import { Beer, ChevronRight, ListChecks, Pencil, Square, SquareCheckBig, Trash2, X } from 'lucide-react'
 import {
   useCategories, useDeleteTransaction, useMonthlyOpening, useRecurringRules,
   useSettings, useTransactionsInRange, useUpsertTransaction,
@@ -256,15 +256,17 @@ export function Ledger() {
                 title="Exit selection"
               >
                 <X className="w-4 h-4" />
+                <span className="hidden md:inline">Done</span>
               </button>
             </>
           ) : (
             <button
               onClick={() => setSelectMode(true)}
               className="btn-outline"
-              title="Select days"
+              title="Select days to summarise"
             >
               <ListChecks className="w-4 h-4" />
+              <span className="hidden md:inline">Select</span>
             </button>
           )}
           <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} className="btn-outline">←</button>
@@ -272,6 +274,12 @@ export function Ledger() {
           <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="btn-outline">→</button>
         </div>
       </header>
+
+      {selectMode && selectedDays.size === 0 && (
+        <div className="text-xs text-fg-muted text-center -mt-2">
+          Tap any day to add it to the summary.
+        </div>
+      )}
 
       <div className="card overflow-hidden">
         {/* Header row */}
@@ -304,9 +312,9 @@ export function Ledger() {
                   onClick={() => toggleSelect(row.day)}
                   aria-pressed={isSelected}
                   aria-label={isSelected ? 'Deselect day' : 'Select day'}
-                  className={`shrink-0 w-6 h-6 grid place-items-center rounded-md border transition-colors ${isSelected ? 'bg-accent text-accent-fg border-accent' : 'border-border text-fg-subtle hover:text-fg hover:border-border-strong'}`}
+                  className={`shrink-0 w-6 h-6 grid place-items-center rounded-md transition-colors ${isSelected ? 'bg-accent text-accent-fg' : 'text-fg-subtle hover:text-fg hover:bg-bg-elev'}`}
                 >
-                  {isSelected ? <SquareCheckBig className="w-3.5 h-3.5" /> : null}
+                  {isSelected ? <SquareCheckBig className="w-4 h-4" /> : <Square className="w-4 h-4" />}
                 </button>
               ) : (
                 <button
