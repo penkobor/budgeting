@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { Beer, Check, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import {
   useCategories, useDeleteTransaction, useMonthlyOpening, useRecurringRules,
   useSettings, useTransactionsInRange, useUpsertTransaction,
@@ -231,10 +231,16 @@ export function Ledger() {
                 <button
                   type="button"
                   onClick={() => toggleDay(row.day)}
-                  className={`w-7 h-7 grid place-items-center rounded-lg text-xs font-semibold stat-num transition-transform active:scale-95 ${isToday ? 'bg-accent text-accent-fg' : isPast ? 'bg-bg-elev text-fg-muted' : 'border border-border text-fg-muted'}`}
+                  className={`relative w-7 h-7 grid place-items-center rounded-lg text-xs font-semibold stat-num transition-transform active:scale-95 ${isToday ? 'bg-accent text-accent-fg' : isPast ? 'bg-bg-elev text-fg-muted' : 'border border-border text-fg-muted'}`}
                   title={expanded ? 'Collapse' : 'Expand'}
                 >
                   {row.day}
+                  {isWeekend && !isToday && (
+                    <Beer
+                      aria-hidden
+                      className="absolute -top-1 -right-1 w-3 h-3 text-amber-400 drop-shadow"
+                    />
+                  )}
                 </button>
               </div>
 

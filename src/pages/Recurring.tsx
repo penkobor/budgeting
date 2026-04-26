@@ -168,9 +168,25 @@ function RuleForm({ rule, open, onClose }: { rule: RecurringRule | null; open: b
         {frequency === 'weekly' && (
           <div>
             <div className="label mb-1.5">Day of week</div>
-            <select className="input" value={dayOfWeek} onChange={(e) => setDayOfWeek(e.target.value)}>
-              {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((n, i) => <option key={i} value={i}>{n}</option>)}
-            </select>
+            <div className="grid grid-cols-7 gap-1.5">
+              {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((label, i) => {
+                const active = parseInt(dayOfWeek, 10) === i
+                const isWeekend = i === 0 || i === 6
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setDayOfWeek(String(i))}
+                    className={`py-2 rounded-lg text-xs font-medium border transition-colors ${active ? 'bg-accent text-accent-fg border-accent' : isWeekend ? 'border-border text-amber-400 hover:border-border-strong' : 'border-border text-fg-muted hover:text-fg hover:border-border-strong'}`}
+                  >
+                    {label.slice(0, 1)}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="text-[11px] text-fg-subtle mt-1.5">
+              Repeats every {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][parseInt(dayOfWeek, 10)] ?? 'Monday'}.
+            </div>
           </div>
         )}
         {frequency === 'yearly' && (
