@@ -2,8 +2,9 @@
 
 **Repo:** [penkobor/budgeting](https://github.com/penkobor/budgeting)
 **Live:** https://penkobor.github.io/budgeting/
-**Status:** In Progress
+**Status:** Done
 **Started:** 2026-04-26
+**Completed:** 2026-04-26
 **Source:** User feedback after BUDG-002 — wants the app to answer "how much can I spend today / this week / this month?" first, and "how much will I have in N months?" second.
 
 ---
@@ -31,7 +32,7 @@ panel so the user can ask "what if salary +10k" / "what if spending −15%".
 - [[BUDG-003 - Plan]] — period-lens chip switcher on Dashboard + scenarios
 
 ### Implementation Log
-- _will be added per session_
+- [[BUDG-003 - 2026-04-26 - lens-architecture]] — Today/Week/Month/Forecast lenses + chip switcher (commit `ee173b3`)
 
 ### QA
 - _none yet_
