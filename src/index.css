@@ -11,7 +11,9 @@
   --fg-subtle: 156 163 175;
   --border: 229 231 235;
   --border-strong: 209 213 219;
-  --accent: 99 102 241;
+  /* Accent is intentionally neutral now — active controls use the foreground
+     color so emphasis comes from contrast and shape, not hue. */
+  --accent: 17 24 39;
   --accent-fg: 255 255 255;
   --positive: 16 185 129;
   --negative: 239 68 68;
@@ -27,7 +29,7 @@
   --fg-subtle: 113 113 122;
   --border: 39 39 48;
   --border-strong: 63 63 75;
-  --accent: 129 140 248;
+  --accent: 244 244 246;
   --accent-fg: 17 24 39;
   --positive: 52 211 153;
   --negative: 248 113 113;

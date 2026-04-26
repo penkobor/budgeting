@@ -43,7 +43,7 @@ export function Dashboard() {
               <button
                 key={id}
                 onClick={() => setLens(id)}
-                className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all ${active ? '!bg-white !text-bg !border-white/0 shadow-soft' : 'glass text-fg hover:text-fg'}`}
+                className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all ${active ? 'bg-accent text-accent-fg shadow-soft' : 'glass text-fg hover:text-fg'}`}
               >
                 <Icon className="w-4 h-4" />
                 {label}
