@@ -54,22 +54,19 @@ export function SettingsPage() {
         <div>
           <div className="label mb-1.5">Currency</div>
           <input
-            className="input max-w-[10rem] uppercase"
+            className="input max-w-[10rem]"
             defaultValue={settings?.currency ?? 'CZK'}
-            maxLength={3}
             placeholder="CZK"
             onBlur={(e) => {
-              const code = e.target.value.toUpperCase().trim()
-              // ISO-4217: 3 ASCII letters. Reject anything else (e.g. "Kč")
-              // because Intl.NumberFormat throws RangeError on bad codes.
-              if (!/^[A-Z]{3}$/.test(code)) {
+              const code = e.target.value.trim()
+              if (!code) {
                 e.target.value = settings?.currency ?? 'CZK'
                 return
               }
               update.mutate({ currency: code })
             }}
           />
-          <p className="text-xs text-fg-subtle mt-1">3-letter ISO code (CZK, EUR, USD…)</p>
+          <p className="text-xs text-fg-subtle mt-1">ISO code preferred (CZK, EUR…); custom symbols like Kč also work — they'll just be appended after the amount.</p>
         </div>
         <div>
           <div className="label mb-1.5">Theme</div>
