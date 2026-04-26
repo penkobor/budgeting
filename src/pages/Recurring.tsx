@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
 import { useCategories, useDeleteRule, useRecurringRules, useUpsertRule } from '@/hooks/queries'
 import { useSettings } from '@/hooks/queries'
 import { Modal } from '@/components/ui/Modal'
-import { describeRule } from '@/lib/recurring'
+import { describeRule, expandRuleInRange } from '@/lib/recurring'
 import { formatMoney, isoDate } from '@/lib/utils'
 import type { RecurringRule } from '@/lib/db.types'
 
@@ -16,6 +16,31 @@ export function RecurringPage() {
 
   const [editing, setEditing] = useState<RecurringRule | null>(null)
   const [adding, setAdding] = useState(false)
+
+  // Per-rule monthly add-up: expand into a representative 30-day window starting today
+  // (avoids edge effects of varying month lengths and gives a stable “per month” figure).
+  const monthlyByRule = useMemo(() => {
+    const today = new Date()
+    const from = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const to = new Date(from); to.setDate(to.getDate() + 29)
+    const map: Record<string, { count: number; total: number }> = {}
+    for (const r of rules) {
+      const occurrences = expandRuleInRange(r, from, to).length
+      map[r.id] = { count: occurrences, total: occurrences * r.amount }
+    }
+    return map
+  }, [rules])
+
+  const totals = useMemo(() => {
+    let income = 0, expense = 0
+    for (const r of rules) {
+      if (!r.active) continue
+      const v = monthlyByRule[r.id]?.total ?? 0
+      if (r.kind === 'income') income += v
+      else expense += v
+    }
+    return { income, expense, net: income - expense }
+  }, [rules, monthlyByRule])
 
   return (
     <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-5xl mx-auto">
@@ -36,7 +61,9 @@ export function RecurringPage() {
             No recurring rules yet. Add one to auto-fill your monthly fixed payments.
           </div>
         )}
-        {rules.map((r) => (
+        {rules.map((r) => {
+          const monthly = monthlyByRule[r.id]
+          return (
           <div key={r.id} className="flex items-center gap-3 p-4">
             <button
               onClick={() => upsert.mutate({ ...r, active: !r.active })}
@@ -47,7 +74,18 @@ export function RecurringPage() {
             </button>
             <div className="min-w-0 flex-1">
               <div className="font-medium truncate">{r.name}</div>
-              <div className="text-xs text-fg-subtle">{describeRule(r)}</div>
+              <div className="text-xs text-fg-subtle">
+                {describeRule(r)}
+                {monthly && monthly.count > 1 && (
+                  <span className="ml-2 text-fg-muted">
+                    · adds up to {formatMoney(monthly.total, currency)} / month
+                    <span className="text-fg-subtle"> ({monthly.count}×)</span>
+                  </span>
+                )}
+                {monthly && monthly.count <= 1 && r.frequency !== 'monthly' && r.frequency !== 'yearly' && (
+                  <span className="ml-2 text-fg-muted">· ~{formatMoney(monthly.total, currency)} / month</span>
+                )}
+              </div>
             </div>
             <div className={`stat-num font-semibold ${r.kind === 'income' ? 'text-positive' : 'text-negative'}`}>
               {r.kind === 'income' ? '+' : '−'}{formatMoney(r.amount, currency)}
@@ -57,8 +95,28 @@ export function RecurringPage() {
               <button onClick={() => { if (confirm('Delete this rule?')) del.mutate(r.id) }} className="btn-ghost !p-2 text-negative"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
+
+      {rules.length > 0 && (
+        <div className="card p-4 grid grid-cols-3 gap-3 text-sm">
+          <div>
+            <div className="label">Income / mo</div>
+            <div className="stat-num font-semibold text-positive mt-0.5">+{formatMoney(totals.income, currency)}</div>
+          </div>
+          <div>
+            <div className="label">Expense / mo</div>
+            <div className="stat-num font-semibold text-negative mt-0.5">−{formatMoney(totals.expense, currency)}</div>
+          </div>
+          <div>
+            <div className="label">Net / mo</div>
+            <div className={`stat-num font-semibold mt-0.5 ${totals.net >= 0 ? 'text-positive' : 'text-negative'}`}>
+              {totals.net >= 0 ? '+' : ''}{formatMoney(totals.net, currency)}
+            </div>
+          </div>
+        </div>
+      )}
 
       {(adding || editing) && (
         <RuleForm
