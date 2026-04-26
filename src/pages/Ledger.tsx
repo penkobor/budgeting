@@ -4,7 +4,7 @@ import {
   useCategories, useDeleteTransaction, useMonthlyOpening, useRecurringRules,
   useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
-import { daysInMonth, formatMoney, monthKey } from '@/lib/utils'
+import { daysInMonth, formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
 import { Modal } from '@/components/ui/Modal'
@@ -264,8 +264,13 @@ export function Ledger() {
 
       <div className="card overflow-hidden">
         {rows.map((row) => {
-          const isToday = row.date === today.toISOString().slice(0, 10)
-          const isPast = new Date(row.date) < new Date(today.toISOString().slice(0, 10))
+          // Use the LOCAL date here — today.toISOString().slice(0,10) returns
+          // the UTC date, which can disagree with the user's local date right
+          // around midnight (e.g. CEST 00:30 → UTC still on the previous day),
+          // making yesterday's row light up as "today".
+          const todayIso = isoDate(today)
+          const isToday = row.date === todayIso
+          const isPast = row.date < todayIso
           const dow = new Date(row.date + 'T00:00:00').getDay()
           const isWeekend = dow === 0 || dow === 6
           const expanded = expandedDays.has(row.day)
