@@ -5,9 +5,10 @@ import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import {
-  useCategories, useMonthlyOpening, useSettings, useTransactionsInRange,
+  useCategories, useMonthlyOpening, useRecurringRules, useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
 import { formatMoney, isoDate, monthKey } from '@/lib/utils'
+import { expandRuleInRange } from '@/lib/recurring'
 
 function addDays(d: Date, n: number) {
   const out = new Date(d)
@@ -47,18 +48,17 @@ export function WeekLens() {
   const { data: settings } = useSettings()
   const { data: opening } = useMonthlyOpening(monthIso)
   const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
+  const { data: rules = [] } = useRecurringRules()
   const { data: categories = [] } = useCategories()
   const currency = settings?.currency ?? 'CZK'
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
 
-  // Build the canonical list of items in the [start, end] window. Single
-  // source of truth = the ledger — only manual transactions are surfaced
-  // here, mirroring what the user sees on the Ledger page. Recurring-rule
-  // instances still feed the running balance / opening anchor in other
-  // views; here we keep the visible numbers strictly aligned with the
-  // ledger.
+  // Build the canonical list of items in the [start, end] window. Mirrors
+  // the Ledger: manual ledger entries + recurring-rule instances (the rule
+  // contributes a default occurrence per day, deduped against any manual
+  // override that links back via recurring_rule_id).
   const items = useMemo(() => {
-    const out: Array<{ key: string; date: string; amount: number; description: string; categoryId: string | null }> = []
+    const out: Array<{ key: string; date: string; amount: number; description: string; categoryId: string | null; recurring: boolean }> = []
     for (const t of txs) {
       if (t.occurred_on >= startIso && t.occurred_on <= endIso) {
         out.push({
@@ -67,11 +67,26 @@ export function WeekLens() {
           amount: Number(t.amount),
           description: t.description?.trim() || (t.category_id ? catMap[t.category_id]?.name : null) || 'Untitled',
           categoryId: t.category_id ?? null,
+          recurring: false,
+        })
+      }
+    }
+    for (const r of rules) {
+      const dates = expandRuleInRange(r, start, end)
+      for (const dIso of dates) {
+        if (txs.some((t) => t.recurring_rule_id === r.id && t.occurred_on === dIso)) continue
+        out.push({
+          key: `rule-${r.id}-${dIso}`,
+          date: dIso,
+          amount: r.kind === 'income' ? r.amount : -r.amount,
+          description: r.name,
+          categoryId: r.category_id ?? null,
+          recurring: true,
         })
       }
     }
     return out.sort((a, b) => a.date.localeCompare(b.date))
-  }, [txs, startIso, endIso, catMap])
+  }, [txs, rules, startIso, endIso, start, end, catMap])
 
   // Per-day totals (derived from the same items list)
   const days = useMemo(() => {
@@ -267,7 +282,12 @@ export function WeekLens() {
             {items.map((i) => (
               <div key={i.key} className="flex items-center justify-between gap-3 py-2">
                 <div className="min-w-0">
-                  <div className="text-sm font-medium truncate">{i.description}</div>
+                  <div className="text-sm font-medium truncate flex items-center gap-2">
+                    <span className="truncate">{i.description}</span>
+                    {i.recurring && (
+                      <span className="text-[10px] text-fg-subtle uppercase tracking-wider shrink-0">recurring</span>
+                    )}
+                  </div>
                   <div className="text-xs text-fg-subtle stat-num">{i.date}</div>
                 </div>
                 <div className={`stat-num text-sm ${i.amount >= 0 ? 'text-positive' : 'text-negative'}`}>

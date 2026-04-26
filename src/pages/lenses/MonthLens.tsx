@@ -195,12 +195,20 @@ export function MonthLens() {
         <div className="label mb-2">Today &amp; upcoming</div>
         <h2 className="font-semibold mb-3">Next 7 days</h2>
         <UpcomingList
-          items={txs.map((t) => ({
-            date: t.occurred_on,
-            amount: Number(t.amount),
-            description: txLabel(t),
-            _txId: t.id,
-          }))}
+          items={[
+            ...txs.map((t) => ({
+              date: t.occurred_on,
+              amount: Number(t.amount),
+              description: txLabel(t),
+              recurring: false,
+            })),
+            ...missingRuleInstances.map((i) => ({
+              date: i.date,
+              amount: i.amount,
+              description: i.description,
+              recurring: true,
+            })),
+          ]}
           fromIso={isoDate(today)}
           currency={currency}
         />
@@ -263,7 +271,7 @@ function ChartTooltip({ active, payload, label, currency }: ChartTooltipProps) {
 }
 
 function UpcomingList({ items, fromIso, currency }: {
-  items: Array<{ date: string; amount: number; description: string }>;
+  items: Array<{ date: string; amount: number; description: string; recurring?: boolean }>;
   fromIso: string; currency: string
 }) {
   const start = new Date(fromIso + 'T00:00:00')
@@ -286,7 +294,12 @@ function UpcomingList({ items, fromIso, currency }: {
               {i.amount >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
             </div>
             <div className="min-w-0">
-              <div className="text-sm font-medium truncate">{i.description}</div>
+              <div className="text-sm font-medium truncate flex items-center gap-2">
+                <span className="truncate">{i.description}</span>
+                {i.recurring && (
+                  <span className="text-[10px] text-fg-subtle uppercase tracking-wider shrink-0">recurring</span>
+                )}
+              </div>
               <div className="text-xs text-fg-subtle stat-num">{i.date}</div>
             </div>
           </div>

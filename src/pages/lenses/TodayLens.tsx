@@ -41,22 +41,47 @@ export function TodayLens() {
   // Viewed day's transactions
   const dayTxs = useMemo(() => txs.filter((t) => t.occurred_on === viewedIso), [txs, viewedIso])
 
-  // Day's expense and income totals — only count what the user has
-  // explicitly committed to the ledger, mirroring what they see on the
-  // Ledger page. Recurring rule instances still project into the running
-  // balance (below) so the day's KPI matches the Dashboard hero, but they
-  // are NOT counted as separate "planned items" any more.
+  // Recurring instances for the viewed day, deduped against manual
+  // overrides via recurring_rule_id (a manual tx linked to a rule replaces
+  // the rule's default for that day).
+  const dayRuleHits = useMemo(() => {
+    const out: Array<{ rule_id: string; amount: number; description: string; categoryId: string | null }> = []
+    const d = new Date(viewedIso + 'T00:00:00')
+    const realisedKeys = new Set(
+      txs
+        .filter((t) => t.recurring_rule_id && t.occurred_on === viewedIso)
+        .map((t) => t.recurring_rule_id),
+    )
+    for (const r of rules) {
+      if (realisedKeys.has(r.id)) continue
+      for (const _ of expandRuleInRange(r, d, d)) {
+        out.push({
+          rule_id: r.id,
+          amount: r.kind === 'income' ? r.amount : -r.amount,
+          description: r.name,
+          categoryId: r.category_id,
+        })
+      }
+    }
+    return out
+  }, [rules, txs, viewedIso])
+
+  // Day's expense and income totals — mirror the Ledger: manual entries +
+  // recurring rule instances (templates), since those now surface in the
+  // ledger's expanded row too.
   const dayExpense = useMemo(() => {
     let sum = 0
     for (const t of dayTxs) if (Number(t.amount) < 0) sum += -Number(t.amount)
+    for (const i of dayRuleHits) if (i.amount < 0) sum += -i.amount
     return sum
-  }, [dayTxs])
+  }, [dayTxs, dayRuleHits])
 
   const dayIncome = useMemo(() => {
     let sum = 0
     for (const t of dayTxs) if (Number(t.amount) > 0) sum += Number(t.amount)
+    for (const i of dayRuleHits) if (i.amount > 0) sum += i.amount
     return sum
-  }, [dayTxs])
+  }, [dayTxs, dayRuleHits])
 
   // Running balance — still walks recurring-rule projections so the value
   // matches the Dashboard hero / Ledger running balance.
@@ -83,20 +108,28 @@ export function TodayLens() {
     return running
   }, [txs, rules, opening, monthIso, viewed])
 
-  // Day items list — only manual ledger entries, to mirror what the
-  // Ledger page shows (single source of truth: the ledger).
+  // Day items list — manual entries + recurring rule instances, matching
+  // the Ledger's expanded-row treatment.
   const items = useMemo(() => {
-    return dayTxs
-      .map((t) => ({
+    const out = [
+      ...dayTxs.map((t) => ({
         key: `tx-${t.id}`,
         amount: Number(t.amount),
         description:
           t.description?.trim() ||
           (t.category_id ? catMap[t.category_id]?.name : null) ||
           'Untitled',
-      }))
-      .sort((a, b) => a.amount - b.amount)
-  }, [dayTxs, catMap])
+        recurring: false,
+      })),
+      ...dayRuleHits.map((i) => ({
+        key: `rule-${i.rule_id}`,
+        amount: i.amount,
+        description: i.description,
+        recurring: true,
+      })),
+    ]
+    return out.sort((a, b) => a.amount - b.amount)
+  }, [dayTxs, dayRuleHits, catMap])
 
   const dayLabel = viewed.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
   const offsetLabel =
@@ -181,7 +214,12 @@ export function TodayLens() {
                     {i.amount >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
                   </div>
                   <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">{i.description}</div>
+                    <div className="text-sm font-medium truncate flex items-center gap-2">
+                      <span className="truncate">{i.description}</span>
+                      {i.recurring && (
+                        <span className="text-[10px] text-fg-subtle uppercase tracking-wider shrink-0">recurring</span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className={`stat-num text-sm ${i.amount >= 0 ? 'text-positive' : 'text-negative'}`}>
