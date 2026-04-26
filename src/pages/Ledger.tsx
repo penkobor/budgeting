@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Beer, ChevronRight, ListChecks, Pencil, Square, SquareCheckBig, Trash2, X } from 'lucide-react'
 import {
   useCategories, useDeleteTransaction, useMonthlyOpening, useRecurringRules,
-  useSettings, useTransactionsInRange, useUpsertTransaction,
+  useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
 import { daysInMonth, formatMoney, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
@@ -23,7 +23,6 @@ export function Ledger() {
   const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
   const { data: rules = [] } = useRecurringRules()
   const { data: categories = [] } = useCategories()
-  const upsertTx = useUpsertTransaction()
   const deleteTx = useDeleteTransaction()
 
   const currency = settings?.currency ?? 'CZK'
@@ -61,7 +60,9 @@ export function Ledger() {
   }, [rules, txs, fromIso, toIso])
 
   // Build rows with running balance — we no longer track actual-vs-planned;
-  // every transaction is a single 'plan' entry.
+  // every transaction is a single 'plan' entry. Pending rule instances still
+  // flow into the running balance (so totals match Dashboard / Forecast), but
+  // are never surfaced as actionable rows.
   const rows = useMemo(() => {
     const opening0 = opening?.opening_balance ?? 0
     const arr: Array<{
@@ -71,7 +72,6 @@ export function Ledger() {
       income: number;
       expense: number;
       txs: Transaction[];
-      pending: Array<{ rule_id: string; amount: number; description: string; categoryId: string | null }>;
     }> = []
     let balance = opening0
     for (let d = 1; d <= lastDay; d++) {
@@ -98,7 +98,6 @@ export function Ledger() {
         income: inc,
         expense: exp,
         txs: dayTxs,
-        pending: dayPending,
       })
     }
     return arr
@@ -180,21 +179,9 @@ export function Ledger() {
           byCat.set(k, (byCat.get(k) ?? 0) + -amt)
         }
       }
-      for (const p of r.pending) {
-        if (p.amount >= 0) income += p.amount
-        else expense += -p.amount
-        items.push({
-          key: `rule-${p.rule_id}-${r.day}`,
-          date: r.date,
-          amount: p.amount,
-          description: p.description,
-          categoryId: p.categoryId,
-        })
-        if (p.amount < 0) {
-          const k = p.categoryId ?? '__uncat__'
-          byCat.set(k, (byCat.get(k) ?? 0) + -p.amount)
-        }
-      }
+      // Recurring rule instances are intentionally excluded from selection
+      // summaries — the summary reflects what the user has explicitly
+      // committed to the ledger, not auto-projected entries.
     }
     const categories = Array.from(byCat.entries())
       .map(([id, amount]) => ({
@@ -225,17 +212,6 @@ export function Ledger() {
     }, 100)
     return () => window.clearTimeout(id)
   }, [sameMonthAsToday, monthIso])
-
-  const realisePending = async (date: string, p: { rule_id: string; amount: number; description: string; categoryId: string | null }) => {
-    await upsertTx.mutateAsync({
-      occurred_on: date,
-      amount: p.amount,
-      description: p.description,
-      category_id: p.categoryId,
-      recurring_rule_id: p.rule_id,
-      planned: true,
-    })
-  }
 
   return (
     <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto pb-32">
@@ -293,7 +269,7 @@ export function Ledger() {
           const dow = new Date(row.date + 'T00:00:00').getDay()
           const isWeekend = dow === 0 || dow === 6
           const expanded = expandedDays.has(row.day)
-          const entryCount = row.txs.length + row.pending.length
+          const entryCount = row.txs.length
           const isSelected = selectedDays.has(row.day)
           const bgClass = isSelected
             ? 'bg-accent/10 hover:bg-accent/15'
@@ -390,7 +366,7 @@ export function Ledger() {
               </div>
 
               <div className="space-y-1.5 min-w-0">
-                {row.txs.length === 0 && row.pending.length === 0 && (
+                {row.txs.length === 0 && (
                   <button
                     onClick={() => setAddForDate(row.date)}
                     className="text-xs text-fg-subtle hover:text-accent transition-colors"
@@ -414,18 +390,7 @@ export function Ledger() {
                     </div>
                   </div>
                 ))}
-                {row.pending.map((p) => (
-                  <div key={`${p.rule_id}-${row.day}`} className="flex items-center gap-2 text-sm min-w-0 text-fg-muted italic">
-                    <span className="w-1.5 h-1.5 rounded-full bg-fg-subtle shrink-0" />
-                    <span className="truncate">{p.description}</span>
-                    <span className={`stat-num text-xs ml-1 ${p.amount >= 0 ? 'text-positive' : 'text-negative'}`}>
-                      {formatMoney(p.amount, currency)}
-                    </span>
-                    <button onClick={() => realisePending(row.date, p)} title="Add this expected recurring entry to the ledger as a real transaction" className="ml-auto chip hover:border-accent hover:text-accent !text-[10px]">
-                      add to ledger
-                    </button>
-                  </div>
-                ))}
+                {/* pending rule instances no longer surface in the ledger */}
                 <button
                   onClick={() => setAddForDate(row.date)}
                   className="text-[11px] text-fg-subtle hover:text-accent transition-colors"

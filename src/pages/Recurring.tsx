@@ -49,7 +49,7 @@ export function RecurringPage() {
           <div className="label">Fixed payments</div>
           <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">Recurring rules</h1>
           <p className="text-xs md:text-sm text-fg-muted mt-1.5 max-w-prose">
-            Templates for payments and income that repeat — rent, subscriptions, salary. They appear in your forecast automatically; tap <span className="text-fg font-medium">Add to ledger</span> in the Dashboard or Ledger to record them as actual transactions when they happen.
+            Templates for payments and income that repeat — rent, subscriptions, salary. They flow into your forecast and the running balance automatically.
           </p>
         </div>
         <button onClick={() => setAdding(true)} className="btn-primary shrink-0"><Plus className="w-4 h-4" /> Add rule</button>
