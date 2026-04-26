@@ -239,15 +239,20 @@ export function Ledger() {
 
   return (
     <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto pb-32">
-      <header className="sticky top-0 z-30 -mx-4 md:-mx-8 px-4 md:px-8 py-3 -mt-4 md:-mt-8 mb-2 flex flex-wrap items-center gap-3 justify-between pointer-events-none">
-        <div className="pointer-events-auto">
-          <div className="label">Ledger</div>
-          <h1 className="text-xl md:text-3xl font-semibold mt-0.5">{monthLabel}</h1>
-        </div>
+      {/* Title: normal flow, scrolls away with content */}
+      <div>
+        <div className="label">Ledger</div>
+        <h1 className="text-xl md:text-3xl font-semibold mt-0.5">{monthLabel}</h1>
+      </div>
+
+      {/* Floating glass pill toolbar — sticky relative to the page wrapper so
+          it stays pinned for the whole scroll range, not just while the title
+          is still visible. */}
+      <div className="sticky top-2 md:top-4 z-30 flex justify-end pointer-events-none">
         <div className="flex gap-2 items-center pointer-events-auto">
           {selectMode ? (
             <>
-              <span className="text-xs text-fg-muted stat-num px-1">
+              <span className="glass !rounded-full px-3 h-9 inline-flex items-center text-xs text-fg-muted stat-num">
                 {selectedDays.size} selected
               </span>
               <button
@@ -273,7 +278,7 @@ export function Ledger() {
           <button onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))} className="glass btn !rounded-full !h-9">Today</button>
           <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="glass btn !rounded-full !h-9 !w-9 !p-0">→</button>
         </div>
-      </header>
+      </div>
 
       {selectMode && selectedDays.size === 0 && (
         <div className="text-xs text-fg-muted text-center -mt-2">
