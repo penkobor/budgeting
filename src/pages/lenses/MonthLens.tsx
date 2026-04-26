@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import { ArrowDownRight, ArrowUpRight, Target } from 'lucide-react'
 import {
-  useCategories, useMonthlyOpening, useRecurringRules, useSettings, useTransactionsInRange, useInsertTransactions,
+  useCategories, useMonthlyOpening, useRecurringRules, useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
 import { daysInMonth, formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
@@ -24,7 +24,6 @@ export function MonthLens() {
   const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
   const { data: rules = [] } = useRecurringRules()
   const { data: categories = [] } = useCategories()
-  const insertTx = useInsertTransactions()
 
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
   const txLabel = (t: { description: string | null; category_id: string | null }) =>
@@ -115,18 +114,6 @@ export function MonthLens() {
 
   const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
-  const realiseAll = async () => {
-    if (missingRuleInstances.length === 0) return
-    await insertTx.mutateAsync(missingRuleInstances.map((i) => ({
-      occurred_on: i.date,
-      amount: i.amount,
-      description: i.description,
-      category_id: i.categoryId,
-      planned: true,
-      recurring_rule_id: i.rule_id,
-    })))
-  }
-
   return (
     <div className="space-y-4 md:space-y-6">
       <header className="flex flex-wrap items-center gap-3 justify-between">
@@ -203,36 +190,6 @@ export function MonthLens() {
           </ResponsiveContainer>
         </div>
       </motion.section>
-
-      {missingRuleInstances.length > 0 && (
-        <section className="card p-4 md:p-5">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="min-w-0">
-              <div className="label">Upcoming this month</div>
-              <h2 className="font-semibold mt-0.5">{missingRuleInstances.length} expected recurring {missingRuleInstances.length === 1 ? 'payment' : 'payments'}</h2>
-              <p className="text-xs text-fg-muted mt-1">
-                These are recurring rules that haven't been recorded yet. Tap "Add all to ledger" once they actually happen — each becomes a real transaction in the running balance.
-              </p>
-            </div>
-            <button onClick={realiseAll} disabled={insertTx.isPending} className="btn-primary shrink-0">
-              {insertTx.isPending ? 'Adding…' : 'Add all to ledger'}
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {missingRuleInstances.slice(0, 9).map((i) => (
-              <div key={`${i.rule_id}-${i.date}`} className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-border bg-bg-elev/50">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium truncate">{i.description}</div>
-                  <div className="text-xs text-fg-subtle stat-num">{i.date}</div>
-                </div>
-                <div className={`stat-num text-sm ${i.amount >= 0 ? 'text-positive' : 'text-negative'}`}>
-                  {formatMoney(i.amount, currency)}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       <section className="card p-4 md:p-5">
         <div className="label mb-2">Today &amp; upcoming</div>

@@ -16,15 +16,24 @@ function addDays(d: Date, n: number) {
   return out
 }
 
+/** Monday of the calendar week containing `d` (locale-independent). */
+function startOfWeekMon(d: Date) {
+  const out = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  // JS getDay(): Sun=0, Mon=1 … Sat=6. Mondays as week-start: 0..6 → 6,0,1,2,3,4,5
+  const offset = (out.getDay() + 6) % 7
+  out.setDate(out.getDate() - offset)
+  return out
+}
+
 /**
- * "Planned this week" lens — pure planning view over a rolling 7-day window
- * starting at today + weekOffset*7. Use the chevrons to flip between weeks
- * and check upcoming category spend (mirrors the user's bank sub-accounts).
+ * "Planned this week" lens — Monday-aligned 7-day window. Use the chevrons to
+ * flip between calendar weeks and check upcoming category spend (mirrors the
+ * user's bank sub-accounts).
  */
 export function WeekLens() {
   const [weekOffset, setWeekOffset] = useState(0)
   const today = useMemo(() => new Date(), [])
-  const start = useMemo(() => addDays(today, weekOffset * 7), [today, weekOffset])
+  const start = useMemo(() => addDays(startOfWeekMon(today), weekOffset * 7), [today, weekOffset])
   const end = useMemo(() => addDays(start, 6), [start])
   const startIso = isoDate(start)
   const endIso = isoDate(end)

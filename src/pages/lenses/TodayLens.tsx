@@ -1,22 +1,34 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowDownRight, ArrowUpRight, Wallet } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Wallet } from 'lucide-react'
 import {
   useCategories, useMonthlyOpening, useRecurringRules, useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
 import { formatMoney, isoDate, monthKey, daysInMonth } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 
+function addDays(d: Date, n: number) {
+  const out = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  out.setDate(out.getDate() + n)
+  return out
+}
+
 /**
- * "Planned for today" lens — pure planning view of today's transactions
- * plus any un-realised recurring instances that fall on today.
+ * "Planned for the day" lens. Defaults to today; user can flip to neighboring
+ * days with the chevrons. Shows the day's planned transactions, recurring
+ * instances, totals, and the running balance walked from the month opening up
+ * to the viewed day.
  */
 export function TodayLens() {
+  const [dayOffset, setDayOffset] = useState(0)
   const today = useMemo(() => new Date(), [])
-  const todayIso = isoDate(today)
-  const monthIso = monthKey(today)
-  const lastDay = daysInMonth(today.getFullYear(), today.getMonth())
-  const toIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  const viewed = useMemo(() => addDays(today, dayOffset), [today, dayOffset])
+  const viewedIso = isoDate(viewed)
+  // Always anchor data fetch on the *viewed* day's month so navigating across
+  // months still pulls the right ledger window + opening balance.
+  const monthIso = monthKey(viewed)
+  const lastDay = daysInMonth(viewed.getFullYear(), viewed.getMonth())
+  const toIso = `${viewed.getFullYear()}-${String(viewed.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
   const { data: settings } = useSettings()
   const { data: opening } = useMonthlyOpening(monthIso)
@@ -26,10 +38,10 @@ export function TodayLens() {
   const currency = settings?.currency ?? 'CZK'
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
 
-  // Recurring instances for today only (un-realised)
-  const todayRuleHits = useMemo(() => {
+  // Recurring instances for the viewed day (un-realised)
+  const dayRuleHits = useMemo(() => {
     const out: Array<{ rule_id: string; amount: number; description: string; categoryId: string | null }> = []
-    const d = new Date(todayIso + 'T00:00:00')
+    const d = new Date(viewedIso + 'T00:00:00')
     for (const r of rules) {
       const dates = expandRuleInRange(r, d, d)
       for (const _ of dates) {
@@ -41,33 +53,33 @@ export function TodayLens() {
         })
       }
     }
-    const realisedKeys = new Set(txs.filter((t) => t.recurring_rule_id && t.occurred_on === todayIso).map((t) => t.recurring_rule_id))
+    const realisedKeys = new Set(txs.filter((t) => t.recurring_rule_id && t.occurred_on === viewedIso).map((t) => t.recurring_rule_id))
     return out.filter((i) => !realisedKeys.has(i.rule_id))
-  }, [rules, txs, todayIso])
+  }, [rules, txs, viewedIso])
 
-  // Today's transactions
-  const todayTxs = useMemo(() => txs.filter((t) => t.occurred_on === todayIso), [txs, todayIso])
+  // Viewed day's transactions
+  const dayTxs = useMemo(() => txs.filter((t) => t.occurred_on === viewedIso), [txs, viewedIso])
 
-  // Today's expense and income totals (sum everything, no planned/actual split)
-  const todayExpense = useMemo(() => {
+  // Day's expense and income totals (sum everything, no planned/actual split)
+  const dayExpense = useMemo(() => {
     let sum = 0
-    for (const t of todayTxs) if (Number(t.amount) < 0) sum += -Number(t.amount)
-    for (const i of todayRuleHits) if (i.amount < 0) sum += -i.amount
+    for (const t of dayTxs) if (Number(t.amount) < 0) sum += -Number(t.amount)
+    for (const i of dayRuleHits) if (i.amount < 0) sum += -i.amount
     return sum
-  }, [todayTxs, todayRuleHits])
+  }, [dayTxs, dayRuleHits])
 
-  const todayIncome = useMemo(() => {
+  const dayIncome = useMemo(() => {
     let sum = 0
-    for (const t of todayTxs) if (Number(t.amount) > 0) sum += Number(t.amount)
-    for (const i of todayRuleHits) if (i.amount > 0) sum += i.amount
+    for (const t of dayTxs) if (Number(t.amount) > 0) sum += Number(t.amount)
+    for (const i of dayRuleHits) if (i.amount > 0) sum += i.amount
     return sum
-  }, [todayTxs, todayRuleHits])
+  }, [dayTxs, dayRuleHits])
 
-  // Running balance from opening through today (single value — no actual/forecast split)
+  // Running balance from opening through the viewed day
   const balance = useMemo(() => {
     const opening0 = opening?.opening_balance ?? 0
     let running = opening0
-    const cutoffDay = today.getDate()
+    const cutoffDay = viewed.getDate()
     for (let day = 1; day <= cutoffDay; day++) {
       const dIso = `${monthIso.slice(0, 8)}${String(day).padStart(2, '0')}`
       for (const t of txs) {
@@ -75,63 +87,98 @@ export function TodayLens() {
       }
     }
     return running
-  }, [txs, opening, monthIso, today])
+  }, [txs, opening, monthIso, viewed])
 
-  // Today's items list
+  // Day items list
   const items = useMemo(() => {
     const out = [
-      ...todayTxs.map((t) => ({
+      ...dayTxs.map((t) => ({
         key: `tx-${t.id}`,
         amount: Number(t.amount),
         description: t.description?.trim() || (t.category_id ? catMap[t.category_id]?.name : null) || 'Untitled',
       })),
-      ...todayRuleHits.map((i) => ({
+      ...dayRuleHits.map((i) => ({
         key: `rule-${i.rule_id}`,
         amount: i.amount,
         description: i.description,
       })),
     ]
     return out.sort((a, b) => a.amount - b.amount)
-  }, [todayTxs, todayRuleHits, catMap])
+  }, [dayTxs, dayRuleHits, catMap])
 
-  const todayLabel = today.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
+  const dayLabel = viewed.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
+  const offsetLabel =
+    dayOffset === 0 ? 'Today' :
+    dayOffset === 1 ? 'Tomorrow' :
+    dayOffset === -1 ? 'Yesterday' :
+    dayOffset > 0 ? `In ${dayOffset} days` : `${Math.abs(dayOffset)} days ago`
+  const balanceLabel = dayOffset === 0 ? 'Current balance' : dayOffset > 0 ? 'Projected balance' : 'Balance on this day'
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <header>
-        <div className="label">Today</div>
-        <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">{todayLabel}</h1>
+      <header className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="label">{offsetLabel}</div>
+          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5 truncate">{dayLabel}</h1>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => setDayOffset((d) => d - 1)}
+            className="btn-outline w-9 h-9 px-0 grid place-items-center"
+            aria-label="Previous day"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          {dayOffset !== 0 && (
+            <button
+              type="button"
+              onClick={() => setDayOffset(0)}
+              className="btn-outline text-xs px-2.5"
+            >
+              Today
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setDayOffset((d) => d + 1)}
+            className="btn-outline w-9 h-9 px-0 grid place-items-center"
+            aria-label="Next day"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
       </header>
 
-      {/* Hero "Planned for today" */}
+      {/* Hero "Planned" */}
       <motion.section
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         className="card p-5 md:p-7"
       >
-        <div className="label mb-1">Planned for today</div>
-        <div className={`stat-num font-semibold text-4xl md:text-5xl ${todayExpense === 0 ? 'text-fg-muted' : 'text-fg'}`}>
-          {formatMoney(todayExpense, currency)}
+        <div className="label mb-1">Planned {dayOffset === 0 ? 'for today' : 'for this day'}</div>
+        <div className={`stat-num font-semibold text-4xl md:text-5xl ${dayExpense === 0 ? 'text-fg-muted' : 'text-fg'}`}>
+          {formatMoney(dayExpense, currency)}
         </div>
         <div className="text-xs md:text-sm text-fg-subtle mt-2 stat-num">
-          {todayExpense === 0 && todayIncome === 0 ? (
-            'Nothing planned today.'
+          {dayExpense === 0 && dayIncome === 0 ? (
+            'Nothing planned.'
           ) : (
             <>
-              Income +{formatMoney(todayIncome, currency)} · Net {formatMoney(todayIncome - todayExpense, currency)}
+              Income +{formatMoney(dayIncome, currency)} · Net {formatMoney(dayIncome - dayExpense, currency)}
             </>
           )}
         </div>
       </motion.section>
 
-      {/* Mini KPI — just the current balance */}
+      {/* Mini KPI — running balance */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-        <Mini label="Current balance" value={formatMoney(balance, currency)} icon={<Wallet className="w-4 h-4" />} />
+        <Mini label={balanceLabel} value={formatMoney(balance, currency)} icon={<Wallet className="w-4 h-4" />} />
       </div>
 
       {/* What's planned */}
       <section className="card p-4 md:p-5">
-        <div className="label mb-2">What's on for today</div>
+        <div className="label mb-2">What's on for {dayOffset === 0 ? 'today' : 'this day'}</div>
         <h2 className="font-semibold mb-3">{items.length === 0 ? 'Nothing planned' : `${items.length} ${items.length === 1 ? 'item' : 'items'}`}</h2>
         {items.length > 0 && (
           <div className="divide-y divide-border">
