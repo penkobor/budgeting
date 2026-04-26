@@ -186,9 +186,25 @@ export function Ledger() {
           byCat.set(k, (byCat.get(k) ?? 0) + -amt)
         }
       }
-      // Recurring rule instances are intentionally excluded from selection
-      // summaries — the summary reflects what the user has explicitly
-      // committed to the ledger, not auto-projected entries.
+      // Recurring rule instances are now included in the selection
+      // summary too — they're visible everywhere else (Ledger expanded
+      // row, Today / Week / Month lenses), so the summary should reflect
+      // the same totals.
+      for (const p of r.pending) {
+        if (p.amount >= 0) income += p.amount
+        else expense += -p.amount
+        items.push({
+          key: `rule-${p.rule_id}-${r.day}`,
+          date: r.date,
+          amount: p.amount,
+          description: p.description,
+          categoryId: p.categoryId,
+        })
+        if (p.amount < 0) {
+          const k = p.categoryId ?? '__uncat__'
+          byCat.set(k, (byCat.get(k) ?? 0) + -p.amount)
+        }
+      }
     }
     const categories = Array.from(byCat.entries())
       .map(([id, amount]) => ({
