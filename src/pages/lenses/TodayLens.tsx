@@ -38,73 +38,65 @@ export function TodayLens() {
   const currency = settings?.currency ?? 'CZK'
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
 
-  // Recurring instances for the viewed day (un-realised)
-  const dayRuleHits = useMemo(() => {
-    const out: Array<{ rule_id: string; amount: number; description: string; categoryId: string | null }> = []
-    const d = new Date(viewedIso + 'T00:00:00')
-    for (const r of rules) {
-      const dates = expandRuleInRange(r, d, d)
-      for (const _ of dates) {
-        out.push({
-          rule_id: r.id,
-          amount: r.kind === 'income' ? r.amount : -r.amount,
-          description: r.name,
-          categoryId: r.category_id,
-        })
-      }
-    }
-    const realisedKeys = new Set(txs.filter((t) => t.recurring_rule_id && t.occurred_on === viewedIso).map((t) => t.recurring_rule_id))
-    return out.filter((i) => !realisedKeys.has(i.rule_id))
-  }, [rules, txs, viewedIso])
-
   // Viewed day's transactions
   const dayTxs = useMemo(() => txs.filter((t) => t.occurred_on === viewedIso), [txs, viewedIso])
 
-  // Day's expense and income totals (sum everything, no planned/actual split)
+  // Day's expense and income totals — only count what the user has
+  // explicitly committed to the ledger, mirroring what they see on the
+  // Ledger page. Recurring rule instances still project into the running
+  // balance (below) so the day's KPI matches the Dashboard hero, but they
+  // are NOT counted as separate "planned items" any more.
   const dayExpense = useMemo(() => {
     let sum = 0
     for (const t of dayTxs) if (Number(t.amount) < 0) sum += -Number(t.amount)
-    for (const i of dayRuleHits) if (i.amount < 0) sum += -i.amount
     return sum
-  }, [dayTxs, dayRuleHits])
+  }, [dayTxs])
 
   const dayIncome = useMemo(() => {
     let sum = 0
     for (const t of dayTxs) if (Number(t.amount) > 0) sum += Number(t.amount)
-    for (const i of dayRuleHits) if (i.amount > 0) sum += i.amount
     return sum
-  }, [dayTxs, dayRuleHits])
+  }, [dayTxs])
 
-  // Running balance from opening through the viewed day
+  // Running balance — still walks recurring-rule projections so the value
+  // matches the Dashboard hero / Ledger running balance.
   const balance = useMemo(() => {
     const opening0 = opening?.opening_balance ?? 0
     let running = opening0
     const cutoffDay = viewed.getDate()
+    const realisedKeys = new Set(
+      txs.filter((t) => t.recurring_rule_id).map((t) => `${t.recurring_rule_id}|${t.occurred_on}`),
+    )
     for (let day = 1; day <= cutoffDay; day++) {
       const dIso = `${monthIso.slice(0, 8)}${String(day).padStart(2, '0')}`
       for (const t of txs) {
         if (t.occurred_on === dIso) running += Number(t.amount)
       }
+      const d = new Date(dIso + 'T00:00:00')
+      for (const r of rules) {
+        for (const _ of expandRuleInRange(r, d, d)) {
+          if (realisedKeys.has(`${r.id}|${dIso}`)) continue
+          running += r.kind === 'income' ? r.amount : -r.amount
+        }
+      }
     }
     return running
-  }, [txs, opening, monthIso, viewed])
+  }, [txs, rules, opening, monthIso, viewed])
 
-  // Day items list
+  // Day items list — only manual ledger entries, to mirror what the
+  // Ledger page shows (single source of truth: the ledger).
   const items = useMemo(() => {
-    const out = [
-      ...dayTxs.map((t) => ({
+    return dayTxs
+      .map((t) => ({
         key: `tx-${t.id}`,
         amount: Number(t.amount),
-        description: t.description?.trim() || (t.category_id ? catMap[t.category_id]?.name : null) || 'Untitled',
-      })),
-      ...dayRuleHits.map((i) => ({
-        key: `rule-${i.rule_id}`,
-        amount: i.amount,
-        description: i.description,
-      })),
-    ]
-    return out.sort((a, b) => a.amount - b.amount)
-  }, [dayTxs, dayRuleHits, catMap])
+        description:
+          t.description?.trim() ||
+          (t.category_id ? catMap[t.category_id]?.name : null) ||
+          'Untitled',
+      }))
+      .sort((a, b) => a.amount - b.amount)
+  }, [dayTxs, catMap])
 
   const dayLabel = viewed.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
   const offsetLabel =
