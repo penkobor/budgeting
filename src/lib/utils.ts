@@ -8,14 +8,25 @@ export function cn(...inputs: ClassValue[]) {
 export function formatMoney(value: number, currency = 'CZK', locale = 'en-US') {
   const sign = value < 0 ? '-' : ''
   const abs = Math.abs(value)
-  // Compact pretty: no decimals if integer
-  const fmt = new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: abs % 1 === 0 ? 0 : 2,
-    minimumFractionDigits: 0,
-  })
-  return sign + fmt.format(abs).replace('-', '')
+  const maximumFractionDigits = abs % 1 === 0 ? 0 : 2
+  // Compact pretty: no decimals if integer.
+  // Guard against invalid ISO-4217 codes (e.g. user typed "Kč" instead of
+  // "CZK") — Intl.NumberFormat throws RangeError which would crash the app.
+  try {
+    const fmt = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits,
+      minimumFractionDigits: 0,
+    })
+    return sign + fmt.format(abs).replace('-', '')
+  } catch {
+    const fmt = new Intl.NumberFormat(locale, {
+      maximumFractionDigits,
+      minimumFractionDigits: 0,
+    })
+    return `${sign}${fmt.format(abs)} ${currency}`
+  }
 }
 
 export function formatNumber(value: number, locale = 'en-US') {
