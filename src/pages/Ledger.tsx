@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Check, Pencil, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Check, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import {
   useCategories, useDeleteTransaction, useMonthlyOpening, useRecurringRules,
   useSettings, useTransactionsInRange, useUpsertTransaction,
@@ -120,6 +120,40 @@ export function Ledger() {
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [addForDate, setAddForDate] = useState<string | null>(null)
 
+  // Collapsible day rows. By default only today (or last day of past months) is expanded.
+  const sameMonthAsToday =
+    cursor.getFullYear() === today.getFullYear() && cursor.getMonth() === today.getMonth()
+  const defaultExpandedDay = sameMonthAsToday ? today.getDate() : 1
+  const [expandedDays, setExpandedDays] = useState<Set<number>>(
+    () => new Set([defaultExpandedDay]),
+  )
+
+  // Reset expanded set when navigating to a different month
+  useEffect(() => {
+    setExpandedDays(new Set([defaultExpandedDay]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthIso])
+
+  const toggleDay = (day: number) => {
+    setExpandedDays((prev) => {
+      const next = new Set(prev)
+      if (next.has(day)) next.delete(day)
+      else next.add(day)
+      return next
+    })
+  }
+
+  // Auto-scroll today's row into view when on the current month
+  const todayRowRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!sameMonthAsToday) return
+    // Wait for layout, then scroll the row into a comfortable position.
+    const id = window.setTimeout(() => {
+      todayRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 100)
+    return () => window.clearTimeout(id)
+  }, [sameMonthAsToday, monthIso])
+
   const realisePending = async (date: string, p: { rule_id: string; amount: number; description: string; categoryId: string | null }) => {
     await upsertTx.mutateAsync({
       occurred_on: date,
@@ -172,15 +206,34 @@ export function Ledger() {
           const isToday = row.date === today.toISOString().slice(0, 10)
           const isPast = new Date(row.date) < new Date(today.toISOString().slice(0, 10))
           const onTrackForDay = row.runningActual !== null && row.runningActual >= row.runningForecast
+          const expanded = expandedDays.has(row.day)
+          const entryCount = row.txs.length + row.pending.length
           return (
             <div
               key={row.day}
+              ref={isToday ? todayRowRef : undefined}
               className={`grid md:grid-cols-[60px_140px_1fr_140px_140px] gap-3 px-4 py-3 border-b border-border last:border-b-0 transition-colors ${isToday ? 'bg-accent/5' : 'hover:bg-bg-elev/40'}`}
             >
-              <div className="flex items-center">
-                <div className={`w-7 h-7 grid place-items-center rounded-lg text-xs font-semibold stat-num ${isToday ? 'bg-accent text-accent-fg' : isPast ? 'bg-bg-elev text-fg-muted' : 'border border-border text-fg-muted'}`}>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => toggleDay(row.day)}
+                  aria-expanded={expanded}
+                  aria-label={expanded ? 'Collapse day' : 'Expand day'}
+                  className="shrink-0 w-6 h-6 grid place-items-center rounded-md text-fg-subtle hover:text-fg hover:bg-bg-elev transition-colors"
+                >
+                  <ChevronRight
+                    className={`w-4 h-4 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleDay(row.day)}
+                  className={`w-7 h-7 grid place-items-center rounded-lg text-xs font-semibold stat-num transition-transform active:scale-95 ${isToday ? 'bg-accent text-accent-fg' : isPast ? 'bg-bg-elev text-fg-muted' : 'border border-border text-fg-muted'}`}
+                  title={expanded ? 'Collapse' : 'Expand'}
+                >
                   {row.day}
-                </div>
+                </button>
               </div>
 
               <div className="md:text-right space-y-0.5">
@@ -195,7 +248,17 @@ export function Ledger() {
               </div>
 
               <div className="space-y-1.5 min-w-0">
-                {row.txs.length === 0 && row.pending.length === 0 && (
+                {!expanded && entryCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => toggleDay(row.day)}
+                    className="text-xs text-fg-muted hover:text-accent transition-colors text-left"
+                  >
+                    {entryCount} {entryCount === 1 ? 'entry' : 'entries'}
+                    <span className="text-fg-subtle"> · tap to expand</span>
+                  </button>
+                )}
+                {!expanded && entryCount === 0 && (
                   <button
                     onClick={() => setAddForDate(row.date)}
                     className="text-xs text-fg-subtle hover:text-accent transition-colors"
@@ -203,7 +266,15 @@ export function Ledger() {
                     + add entry
                   </button>
                 )}
-                {row.txs.map((t) => (
+                {expanded && row.txs.length === 0 && row.pending.length === 0 && (
+                  <button
+                    onClick={() => setAddForDate(row.date)}
+                    className="text-xs text-fg-subtle hover:text-accent transition-colors"
+                  >
+                    + add entry
+                  </button>
+                )}
+                {expanded && row.txs.map((t) => (
                   <div key={t.id} className="group flex items-center gap-2 text-sm min-w-0">
                     <span
                       className="w-1.5 h-1.5 rounded-full shrink-0"
@@ -224,7 +295,7 @@ export function Ledger() {
                     </div>
                   </div>
                 ))}
-                {row.pending.map((p) => (
+                {expanded && row.pending.map((p) => (
                   <div key={`${p.rule_id}-${row.day}`} className="flex items-center gap-2 text-sm min-w-0 text-fg-muted italic">
                     <span className="w-1.5 h-1.5 rounded-full bg-fg-subtle shrink-0" />
                     <span className="truncate">{p.description}</span>
@@ -236,12 +307,14 @@ export function Ledger() {
                     </button>
                   </div>
                 ))}
-                <button
-                  onClick={() => setAddForDate(row.date)}
-                  className="text-[11px] text-fg-subtle hover:text-accent transition-colors"
-                >
-                  + add entry
-                </button>
+                {expanded && (
+                  <button
+                    onClick={() => setAddForDate(row.date)}
+                    className="text-[11px] text-fg-subtle hover:text-accent transition-colors"
+                  >
+                    + add entry
+                  </button>
+                )}
               </div>
 
               <div className="hidden md:block md:text-right stat-num text-sm">
