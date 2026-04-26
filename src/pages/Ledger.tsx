@@ -205,6 +205,8 @@ export function Ledger() {
         {rows.map((row) => {
           const isToday = row.date === today.toISOString().slice(0, 10)
           const isPast = new Date(row.date) < new Date(today.toISOString().slice(0, 10))
+          const dow = new Date(row.date + 'T00:00:00').getDay()
+          const isWeekend = dow === 0 || dow === 6
           const onTrackForDay = row.runningActual !== null && row.runningActual >= row.runningForecast
           const expanded = expandedDays.has(row.day)
           const entryCount = row.txs.length + row.pending.length
@@ -212,7 +214,7 @@ export function Ledger() {
             <div
               key={row.day}
               ref={isToday ? todayRowRef : undefined}
-              className={`grid md:grid-cols-[60px_140px_1fr_140px_140px] gap-3 px-4 py-3 border-b border-border last:border-b-0 transition-colors ${isToday ? 'bg-accent/5' : 'hover:bg-bg-elev/40'}`}
+              className={`grid md:grid-cols-[60px_140px_1fr_140px_140px] gap-3 px-4 py-3 border-b border-border last:border-b-0 transition-colors ${isToday ? 'bg-accent/5' : isWeekend ? 'bg-bg-elev/30 hover:bg-bg-elev/50' : 'hover:bg-bg-elev/40'}`}
             >
               <div className="flex items-center gap-1.5">
                 <button
