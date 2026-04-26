@@ -210,7 +210,6 @@ export function Ledger() {
           const onTrackForDay = row.runningActual !== null && row.runningActual >= row.runningForecast
           const expanded = expandedDays.has(row.day)
           const entryCount = row.txs.length + row.pending.length
-          const dayNet = row.incomePlanned - row.expensePlanned
           const bgClass = isToday ? 'bg-accent/5' : isWeekend ? 'bg-bg-elev/30 hover:bg-bg-elev/50' : 'hover:bg-bg-elev/40'
 
           // Reused day-badge cluster (chevron + numbered button)
@@ -253,8 +252,8 @@ export function Ledger() {
                   onClick={() => toggleDay(row.day)}
                   className="min-w-0 text-left"
                 >
-                  <div className={`font-semibold stat-num truncate ${dayNet === 0 ? 'text-fg-muted' : dayNet > 0 ? 'text-positive' : 'text-negative'}`}>
-                    Net: {dayNet >= 0 ? '+' : '−'}{formatMoney(Math.abs(dayNet), currency)}
+                  <div className={`font-semibold stat-num truncate ${row.runningForecast === 0 ? 'text-fg-muted' : row.runningForecast > 0 ? 'text-fg' : 'text-negative'}`}>
+                    Total: {formatMoney(row.runningForecast, currency)}
                   </div>
                   <div className="text-xs text-fg-subtle">
                     {entryCount > 0
