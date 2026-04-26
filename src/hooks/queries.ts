@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { expandRuleInRange } from '@/lib/recurring'
 import type {
   Category,
   CategoryInsert,
@@ -162,24 +163,44 @@ export function useMonthlyOpening(monthIso: string) {
       if (!anchor) return null
       // If the anchor IS the requested month, we're done.
       if (anchor.month === monthIso) return anchor
-      // 2. Otherwise the effective opening for monthIso is the anchor opening plus
-      //    the *realised* running balance accrued from anchor.month up to the day
-      //    before monthIso. We exclude `planned: true` rows so an un-confirmed
-      //    forecast doesn't pollute the next month's opening.
-      const { data: txs, error: tErr } = await supabase
-        .from('transactions')
-        .select('amount,occurred_on,planned')
-        .gte('occurred_on', anchor.month)
-        .lt('occurred_on', monthIso)
-        .eq('planned', false)
-      if (tErr) throw tErr
-      const sum = (txs ?? []).reduce((s, t) => s + Number(t.amount), 0)
-      // Keep the schema shape; mark as derived so consumers can tell.
+      // 2. Otherwise the effective opening for monthIso = the *projected* (planned)
+      //    running balance at the end of the previous month. That means:
+      //      anchor.opening_balance
+      //      + Σ all transactions (planned + actual) between anchor.month and monthIso (exclusive)
+      //      + Σ recurring-rule instances over the same range that are NOT already
+      //        materialised as a transaction (avoiding double-count).
+      const [txsRes, rulesRes] = await Promise.all([
+        supabase
+          .from('transactions')
+          .select('amount,occurred_on,recurring_rule_id')
+          .gte('occurred_on', anchor.month)
+          .lt('occurred_on', monthIso),
+        supabase
+          .from('recurring_rules')
+          .select('*'),
+      ])
+      if (txsRes.error) throw txsRes.error
+      if (rulesRes.error) throw rulesRes.error
+      const txs = txsRes.data ?? []
+      const rules = (rulesRes.data ?? []) as RecurringRule[]
+      const txSum = txs.reduce((s, t) => s + Number(t.amount), 0)
+      const realised = new Set(
+        txs.filter((t) => t.recurring_rule_id).map((t) => `${t.recurring_rule_id}|${t.occurred_on}`),
+      )
+      const rangeFrom = new Date(anchor.month + 'T00:00:00')
+      const rangeTo = new Date(monthIso + 'T00:00:00')
+      rangeTo.setDate(rangeTo.getDate() - 1) // inclusive end-of-prev-month
+      let pendingSum = 0
+      for (const r of rules) {
+        for (const d of expandRuleInRange(r, rangeFrom, rangeTo)) {
+          if (realised.has(`${r.id}|${d}`)) continue
+          pendingSum += r.kind === 'income' ? r.amount : -r.amount
+        }
+      }
       return {
         ...anchor,
         month: monthIso,
-        opening_balance: anchor.opening_balance + sum,
-        // Surface the source month so Settings can render a hint.
+        opening_balance: anchor.opening_balance + txSum + pendingSum,
         derived_from: anchor.month,
       } as MonthlyOpening & { derived_from?: string }
     },
