@@ -18,13 +18,16 @@ export function RecurringPage() {
   const [adding, setAdding] = useState(false)
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-5xl mx-auto">
-      <header className="flex items-center justify-between">
-        <div>
+    <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-5xl mx-auto">
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           <div className="label">Fixed payments</div>
           <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">Recurring rules</h1>
+          <p className="text-xs md:text-sm text-fg-muted mt-1.5 max-w-prose">
+            Templates for payments and income that repeat — rent, subscriptions, salary. They appear in your forecast automatically; tap <span className="text-fg font-medium">Add to ledger</span> in the Dashboard or Ledger to record them as actual transactions when they happen.
+          </p>
         </div>
-        <button onClick={() => setAdding(true)} className="btn-primary"><Plus className="w-4 h-4" /> Add rule</button>
+        <button onClick={() => setAdding(true)} className="btn-primary shrink-0"><Plus className="w-4 h-4" /> Add rule</button>
       </header>
 
       <div className="card divide-y divide-border">

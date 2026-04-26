@@ -34,7 +34,7 @@ Current state: app deployed and live; auth working with email/password; ready fo
 - _none yet — Supabase auto-generated PostgREST consumed via supabase-js_
 
 ### Prompts
-- _none yet — all built directly via interactive chat session_
+- [[Feedback]] — first-iPhone-test feedback that spawned [[BUDG-002]]
 
 ### ADRs
 - [[BUDG-001 - ADR-001 - HashRouter for GitHub Pages SPA]] — chose hash-based routing over BrowserRouter

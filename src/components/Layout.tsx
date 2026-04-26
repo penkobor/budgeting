@@ -99,9 +99,9 @@ export function Layout() {
         </div>
       </aside>
 
-      {/* Mobile bottom nav — floating Liquid Glass pill */}
+      {/* Mobile bottom nav — floating Liquid Glass pill, concentric with iPhone screen curve */}
       <nav
-        className="glass md:hidden fixed bottom-0 inset-x-3 z-30 rounded-3xl mb-[max(env(safe-area-inset-bottom),8px)] overflow-hidden"
+        className="glass md:hidden fixed bottom-0 inset-x-4 z-30 rounded-[44px] mb-[max(env(safe-area-inset-bottom),6px)] overflow-hidden"
       >
         <div className="grid grid-cols-5">
           {nav.map(({ to, label, icon: Icon, end }) => (

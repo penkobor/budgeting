@@ -27,12 +27,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Analysis/AP-39583 - Implementation Overview.md",
+                "file": "Tickets/BUDG-001 — INIT | Bootstrap Personal Budgeting PWA/Prompts/Feedback.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "AP-39583 - Implementation Overview"
+              "title": "Feedback"
             }
           }
         ],
@@ -184,8 +184,18 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "dfbbbfc62232319f",
+  "active": "46515c222e0450b0",
   "lastOpenFiles": [
+    "Tickets/BUDG-002 — POLISH | Mobile UX refinements/Implementation/BUDG-002 - Plan.md",
+    "Tickets/BUDG-002 — POLISH | Mobile UX refinements/BUDG-002.md",
+    "Tickets/BUDG-002 — POLISH | Mobile UX refinements/Implementation/Log",
+    "Tickets/BUDG-002 — POLISH | Mobile UX refinements/QA",
+    "Tickets/BUDG-002 — POLISH | Mobile UX refinements/Prompts",
+    "Tickets/BUDG-002 — POLISH | Mobile UX refinements/Implementation",
+    "Tickets/BUDG-002 — POLISH | Mobile UX refinements/Analysis",
+    "Tickets/BUDG-002 — POLISH | Mobile UX refinements/API",
+    "Tickets/BUDG-002 — POLISH | Mobile UX refinements/ADR",
+    "Tickets/BUDG-002 — POLISH | Mobile UX refinements",
     "Learnings/Code-Review/AP-43099 - Sort Comparator Review Lessons.md",
     "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Analysis/AP-39583 - Implementation Overview.md",
     "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Analysis/AP-39583 - Status Verdict 2026-04-24.md",
@@ -210,21 +220,11 @@
     "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Prompts/14-prune-scenario-types.md",
     "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Prompts/16-prune-i18n-keys.md",
     "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Prompts/15-prune-rtk-endpoint.md",
-    "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Prompts/12-sync-backend-branch.md",
-    "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Prompts/13-delete-documented-section.md",
     "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Analysis",
     "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Prompts",
-    "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Log",
-    "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated",
     "Screenshot 2026-04-24 at 3.30.20 PM.png",
     "Pasted image 20260424144942.png",
-    "Untitled.base",
     "Pasted image 20260423143541.png",
-    "Tickets/AP-39583 — PLAN | Document Planning Version Manually/ADR",
-    "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Implementation/Log",
-    "Tickets/AP-40510",
-    "Tickets/AP-36596",
-    "Tickets/AP-42971",
     "Attachments/image.png",
     "Attachments/Screenshot 2026-04-22 at 11.26.20 AM.png",
     "Attachments/Screenshot 2026-04-22 at 11.26.01 AM.png",

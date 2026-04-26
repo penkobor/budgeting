@@ -146,7 +146,7 @@ export function Dashboard() {
   }
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto">
       <header className="flex flex-wrap items-center gap-3 justify-between">
         <div>
           <div className="label">Overview</div>
@@ -160,7 +160,7 @@ export function Dashboard() {
       </header>
 
       {/* KPI grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <Kpi
           label="Current balance"
           value={formatMoney(series.totals.currentActual, currency)}
@@ -193,7 +193,7 @@ export function Dashboard() {
       <motion.section
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="card p-5"
+        className="card p-4 md:p-5"
       >
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -233,14 +233,17 @@ export function Dashboard() {
 
       {/* Pending recurring */}
       {missingRuleInstances.length > 0 && (
-        <section className="card p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <div className="label">Pending</div>
-              <h2 className="font-semibold mt-0.5">{missingRuleInstances.length} planned recurring entries this month</h2>
+        <section className="card p-4 md:p-5">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="min-w-0">
+              <div className="label">Upcoming this month</div>
+              <h2 className="font-semibold mt-0.5">{missingRuleInstances.length} expected recurring {missingRuleInstances.length === 1 ? 'payment' : 'payments'}</h2>
+              <p className="text-xs text-fg-muted mt-1">
+                These are recurring rules that haven’t been recorded yet. Tap “Add all to ledger” once they actually happen — each becomes a real transaction in the running balance.
+              </p>
             </div>
-            <button onClick={realiseAll} disabled={insertTx.isPending} className="btn-primary">
-              {insertTx.isPending ? 'Adding…' : `Generate all`}
+            <button onClick={realiseAll} disabled={insertTx.isPending} className="btn-primary shrink-0">
+              {insertTx.isPending ? 'Adding…' : 'Add all to ledger'}
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -260,7 +263,7 @@ export function Dashboard() {
       )}
 
       {/* Today’s items */}
-      <section className="card p-5">
+      <section className="card p-4 md:p-5">
         <div className="label mb-2">Today &amp; upcoming</div>
         <h2 className="font-semibold mb-3">Next 7 days</h2>
         <UpcomingList
@@ -291,14 +294,14 @@ function Kpi({ label, value, sub, tone = 'default', icon }: {
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className="card p-4"
+      className="card p-3 md:p-4"
     >
       <div className="flex items-center justify-between">
         <div className="label">{label}</div>
         {icon && <span className={toneClass}>{icon}</span>}
       </div>
-      <div className={`mt-2 text-2xl font-semibold stat-num ${toneClass}`}>{value}</div>
-      {sub && <div className="text-xs text-fg-subtle mt-1 stat-num">{sub}</div>}
+      <div className={`mt-1.5 md:mt-2 text-xl md:text-2xl font-semibold stat-num ${toneClass}`}>{value}</div>
+      {sub && <div className="text-[11px] md:text-xs text-fg-subtle mt-1 stat-num">{sub}</div>}
     </motion.div>
   )
 }

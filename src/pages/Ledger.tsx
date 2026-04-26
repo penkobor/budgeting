@@ -145,7 +145,7 @@ export function Ledger() {
   }
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto">
       <header className="flex flex-wrap items-center gap-3 justify-between">
         <div>
           <div className="label">Ledger</div>
@@ -231,8 +231,8 @@ export function Ledger() {
                     <span className={`stat-num text-xs ml-1 ${p.amount >= 0 ? 'text-positive' : 'text-negative'}`}>
                       {formatMoney(p.amount, currency)}
                     </span>
-                    <button onClick={() => realisePending(row.date, p)} className="ml-auto chip hover:border-accent hover:text-accent !text-[10px]">
-                      generate
+                    <button onClick={() => realisePending(row.date, p)} title="Add this expected recurring entry to the ledger as a real transaction" className="ml-auto chip hover:border-accent hover:text-accent !text-[10px]">
+                      add to ledger
                     </button>
                   </div>
                 ))}

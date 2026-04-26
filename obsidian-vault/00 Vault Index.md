@@ -10,6 +10,7 @@ Personal vault tracking work on the **budgeting_app** project (https://github.co
 ## Tickets
 
 - [[BUDG-001]] — INIT | Bootstrap Personal Budgeting PWA
+- [[BUDG-002]] — POLISH | Mobile UX refinements
 
 ## Other
 

@@ -37,19 +37,19 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-2xl mx-auto">
+    <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-2xl mx-auto">
       <header>
         <div className="label">Account</div>
         <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">Settings</h1>
       </header>
 
-      <section className="card p-5 space-y-4">
+      <section className="card p-4 md:p-5 space-y-3 md:space-y-4">
         <h2 className="font-semibold">Profile</h2>
         <div className="text-sm text-fg-muted">Signed in as <span className="text-fg font-medium">{user?.email}</span></div>
         <button onClick={() => supabase.auth.signOut()} className="btn-outline">Sign out</button>
       </section>
 
-      <section className="card p-5 space-y-4">
+      <section className="card p-4 md:p-5 space-y-3 md:space-y-4">
         <h2 className="font-semibold">Preferences</h2>
         <div>
           <div className="label mb-1.5">Currency</div>
@@ -68,7 +68,7 @@ export function SettingsPage() {
         </div>
       </section>
 
-      <section className="card p-5 space-y-4">
+      <section className="card p-4 md:p-5 space-y-3 md:space-y-4">
         <h2 className="font-semibold">Opening balance</h2>
         <p className="text-sm text-fg-muted">Set the starting balance for a given month — used as the anchor for the running balance.</p>
         <div className="flex gap-2 items-end">
@@ -105,7 +105,7 @@ export function SettingsPage() {
         )}
       </section>
 
-      <section className="card p-5 space-y-3">
+      <section className="card p-4 md:p-5 space-y-3">
         <h2 className="font-semibold">Seed sample data</h2>
         <p className="text-sm text-fg-muted">Loads your April 2026 Numbers spreadsheet (Fixed payments + daily ledger). Only works on an empty account.</p>
         <button onClick={seed} disabled={seeding} className="btn-outline">
