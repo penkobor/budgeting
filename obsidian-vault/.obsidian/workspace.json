@@ -11,14 +11,10 @@
             "id": "7a01168e1a79eee1",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Prompts/24-new-day-fixes.md",
-                "mode": "source",
-                "source": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "24-new-day-fixes"
+              "title": "New tab"
             }
           },
           {
@@ -27,12 +23,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Tickets/BUDG-001 — INIT | Bootstrap Personal Budgeting PWA/Prompts/Feedback.md",
+                "file": "Tickets/BUDG-001 — INIT | Bootstrap Personal Budgeting PWA/Implementation/BUDG-001 - Plan.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Feedback"
+              "title": "BUDG-001 - Plan"
             }
           }
         ],
@@ -184,8 +180,12 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "46515c222e0450b0",
+  "active": "dfbbbfc62232319f",
   "lastOpenFiles": [
+    "Tickets/BUDG-001 — INIT | Bootstrap Personal Budgeting PWA/Implementation/Log/BUDG-001 - 2026-04-26 - bootstrap-and-deploy.md",
+    "Tickets/BUDG-001 — INIT | Bootstrap Personal Budgeting PWA/Implementation/BUDG-001 - Plan.md",
+    "Tickets/BUDG-001 — INIT | Bootstrap Personal Budgeting PWA/Prompts/Feedback.md",
+    "Tickets/BUDG-002 — POLISH | Mobile UX refinements/Implementation/Log/BUDG-002 - 2026-04-26 - modal-sheet-rework.md",
     "Tickets/BUDG-002 — POLISH | Mobile UX refinements/Implementation/Log/BUDG-002 - 2026-04-26 - mobile-polish-pass.md",
     "Tickets/BUDG-002 — POLISH | Mobile UX refinements/Implementation/BUDG-002 - Plan.md",
     "Tickets/BUDG-002 — POLISH | Mobile UX refinements/BUDG-002.md",
@@ -216,10 +216,6 @@
     "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Prompts/21-unify-compare-and-dpv-readonly.md",
     "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Prompts/20-identify-the-reason-of-enabled-sections.md",
     "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Prompts/19-follow-up-after-api-changes.md",
-    "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Prompts/18-regression-and-log.md",
-    "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Prompts/17-compare-409-handler.md",
-    "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Prompts/14-prune-scenario-types.md",
-    "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Prompts/16-prune-i18n-keys.md",
     "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Analysis",
     "Tickets/AP-39583 — PLAN | Document Planning Version Manually/Outdated/Prompts",
     "Screenshot 2026-04-24 at 3.30.20 PM.png",

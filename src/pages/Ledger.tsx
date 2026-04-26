@@ -209,7 +209,7 @@ export function Ledger() {
                       className="w-1.5 h-1.5 rounded-full shrink-0"
                       style={{ background: t.category_id ? catMap[t.category_id]?.color ?? '#888' : '#888' }}
                     />
-                    <span className={`truncate ${t.planned ? 'text-fg-muted italic' : 'text-fg'}`}>{t.description ?? '—'}</span>
+                    <span className={`truncate ${t.planned ? 'text-fg-muted italic' : 'text-fg'}`}>{t.description?.trim() || (t.category_id ? catMap[t.category_id]?.name : null) || 'Untitled'}</span>
                     <span className={`stat-num text-xs ml-1 ${Number(t.amount) >= 0 ? 'text-positive' : 'text-negative'}`}>
                       {formatMoney(Number(t.amount), currency)}
                     </span>
@@ -244,7 +244,7 @@ export function Ledger() {
                 </button>
               </div>
 
-              <div className="md:text-right stat-num text-sm">
+              <div className="hidden md:block md:text-right stat-num text-sm">
                 {row.incomePlanned > 0 ? (
                   <div className="text-positive">{formatMoney(row.incomePlanned, currency)}</div>
                 ) : <div className="text-fg-subtle">—</div>}
@@ -252,7 +252,7 @@ export function Ledger() {
                   <div className="text-[11px] text-fg-subtle">act {formatMoney(row.incomeActual, currency)}</div>
                 )}
               </div>
-              <div className="md:text-right stat-num text-sm">
+              <div className="hidden md:block md:text-right stat-num text-sm">
                 {row.expensePlanned > 0 ? (
                   <div className="text-negative">{formatMoney(row.expensePlanned, currency)}</div>
                 ) : <div className="text-fg-subtle">—</div>}

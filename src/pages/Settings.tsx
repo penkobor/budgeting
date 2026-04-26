@@ -71,13 +71,13 @@ export function SettingsPage() {
       <section className="card p-4 md:p-5 space-y-3 md:space-y-4">
         <h2 className="font-semibold">Opening balance</h2>
         <p className="text-sm text-fg-muted">Set the starting balance for a given month — used as the anchor for the running balance.</p>
-        <div className="flex gap-2 items-end">
-          <div className="flex-1">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2 md:items-end">
+          <div>
             <div className="label mb-1.5">Month</div>
             <input type="month" className="input stat-num" value={month.slice(0, 7)}
               onChange={(e) => setMonth(`${e.target.value}-01`)} />
           </div>
-          <div className="flex-1">
+          <div>
             <div className="label mb-1.5">Balance</div>
             <input
               className="input stat-num"
@@ -95,7 +95,7 @@ export function SettingsPage() {
                 setOpeningValue('')
               }
             }}
-            className="btn-primary"
+            className="btn-primary md:self-end"
           >
             Save
           </button>

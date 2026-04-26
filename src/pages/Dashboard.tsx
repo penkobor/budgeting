@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import { ArrowDownRight, ArrowUpRight, TrendingUp, TrendingDown, Target } from 'lucide-react'
 import {
-  useMonthlyOpening, useRecurringRules, useSettings, useTransactionsInRange, useInsertTransactions,
+  useCategories, useMonthlyOpening, useRecurringRules, useSettings, useTransactionsInRange, useInsertTransactions,
 } from '@/hooks/queries'
 import { daysInMonth, formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
@@ -23,7 +23,12 @@ export function Dashboard() {
   const { data: opening } = useMonthlyOpening(monthIso)
   const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
   const { data: rules = [] } = useRecurringRules()
+  const { data: categories = [] } = useCategories()
   const insertTx = useInsertTransactions()
+
+  const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
+  const txLabel = (t: { description: string | null; category_id: string | null }) =>
+    t.description?.trim() || (t.category_id ? catMap[t.category_id]?.name : null) || 'Untitled'
 
   const currency = settings?.currency ?? 'CZK'
 
@@ -270,7 +275,7 @@ export function Dashboard() {
           items={[
             ...txs.map((t) => ({
               date: t.occurred_on, amount: Number(t.amount),
-              description: t.description ?? '—', planned: t.planned, _txId: t.id,
+              description: txLabel(t), planned: t.planned, _txId: t.id,
             })),
             ...missingRuleInstances.map((i) => ({
               date: i.date, amount: i.amount, description: i.description, planned: true, _txId: undefined,

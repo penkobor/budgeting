@@ -71,8 +71,18 @@ function CategoryForm({ cat, open, onClose, onSubmit }: {
   }
 
   return (
-    <Modal open={open} onOpenChange={(o) => { if (!o) onClose() }} title={cat ? 'Edit category' : 'New category'}>
-      <form onSubmit={submit} className="space-y-4">
+    <Modal
+      open={open}
+      onOpenChange={(o) => { if (!o) onClose() }}
+      title={cat ? 'Edit category' : 'New category'}
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
+          <button type="submit" form="category-form" className="btn-primary">Save</button>
+        </>
+      }
+    >
+      <form id="category-form" onSubmit={submit} className="space-y-4">
         <div>
           <div className="label mb-1.5">Name</div>
           <input className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} required />
@@ -94,10 +104,6 @@ function CategoryForm({ cat, open, onClose, onSubmit }: {
               />
             ))}
           </div>
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
-          <button type="submit" className="btn-primary">Save</button>
         </div>
       </form>
     </Modal>

@@ -66,8 +66,16 @@ export function AddTransactionDialog({
       onOpenChange={onOpenChange}
       title={editId ? 'Edit transaction' : 'Add transaction'}
       description="Press ⌘+Enter to save"
+      footer={
+        <>
+          <button type="button" onClick={() => onOpenChange(false)} className="btn-ghost">Cancel</button>
+          <button type="submit" form="add-tx-form" disabled={upsert.isPending} className="btn-primary">
+            {upsert.isPending ? 'Saving…' : editId ? 'Save' : 'Add'}
+          </button>
+        </>
+      }
     >
-      <form onSubmit={submit} className="space-y-4" onKeyDown={(e) => {
+      <form id="add-tx-form" onSubmit={submit} className="space-y-4" onKeyDown={(e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit(e as React.FormEvent)
       }}>
         <div className="flex gap-2">
@@ -145,15 +153,6 @@ export function AddTransactionDialog({
           />
           <span>Planned (not actually spent yet)</span>
         </label>
-
-        <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={() => onOpenChange(false)} className="btn-ghost">
-            Cancel
-          </button>
-          <button type="submit" disabled={upsert.isPending} className="btn-primary">
-            {upsert.isPending ? 'Saving…' : editId ? 'Save' : 'Add'}
-          </button>
-        </div>
       </form>
     </Modal>
   )

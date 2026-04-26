@@ -110,8 +110,21 @@ function RuleForm({ rule, open, onClose }: { rule: RecurringRule | null; open: b
   const cats = categories.filter((c) => c.kind === kind)
 
   return (
-    <Modal open={open} onOpenChange={(o) => { if (!o) onClose() }} title={rule ? 'Edit rule' : 'New recurring rule'} size="md">
-      <form onSubmit={submit} className="space-y-4">
+    <Modal
+      open={open}
+      onOpenChange={(o) => { if (!o) onClose() }}
+      title={rule ? 'Edit rule' : 'New recurring rule'}
+      size="md"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
+          <button type="submit" form="rule-form" className="btn-primary" disabled={upsert.isPending}>
+            {upsert.isPending ? 'Saving…' : 'Save'}
+          </button>
+        </>
+      }
+    >
+      <form id="rule-form" onSubmit={submit} className="space-y-4">
         <div className="flex gap-2">
           <button type="button" onClick={() => setKind('expense')} className={`btn flex-1 ${kind === 'expense' ? 'bg-negative/10 text-negative border border-negative/30' : 'btn-outline'}`}>Expense</button>
           <button type="button" onClick={() => setKind('income')} className={`btn flex-1 ${kind === 'income' ? 'bg-positive/10 text-positive border border-positive/30' : 'btn-outline'}`}>Income</button>
@@ -178,11 +191,6 @@ function RuleForm({ rule, open, onClose }: { rule: RecurringRule | null; open: b
         <div>
           <div className="label mb-1.5">Starts on</div>
           <input type="date" className="input stat-num" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} />
-        </div>
-
-        <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
-          <button type="submit" className="btn-primary" disabled={upsert.isPending}>{upsert.isPending ? 'Saving…' : 'Save'}</button>
         </div>
       </form>
     </Modal>
