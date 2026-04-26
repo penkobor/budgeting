@@ -252,7 +252,7 @@ export function Ledger() {
               </span>
               <button
                 onClick={() => { setSelectMode(false); setSelectedDays(new Set()) }}
-                className="glass btn"
+                className="glass btn !rounded-full"
                 title="Exit selection"
               >
                 <X className="w-4 h-4" />
@@ -262,16 +262,16 @@ export function Ledger() {
           ) : (
             <button
               onClick={() => setSelectMode(true)}
-              className="glass btn"
+              className="glass btn !rounded-full"
               title="Select days to summarise"
             >
               <ListChecks className="w-4 h-4" />
               <span className="hidden md:inline">Select</span>
             </button>
           )}
-          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} className="glass btn">←</button>
-          <button onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))} className="glass btn">Today</button>
-          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="glass btn">→</button>
+          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} className="glass btn !rounded-full !w-9 !px-0">←</button>
+          <button onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))} className="glass btn !rounded-full">Today</button>
+          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="glass btn !rounded-full !w-9 !px-0">→</button>
         </div>
       </header>
 
