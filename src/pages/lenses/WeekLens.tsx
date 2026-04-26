@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
@@ -16,18 +17,24 @@ function addDays(d: Date, n: number) {
 }
 
 /**
- * "Planned this week" lens — pure planning view over today + next 6 days.
+ * "Planned this week" lens — pure planning view over a rolling 7-day window
+ * starting at today + weekOffset*7. Use the chevrons to flip between weeks
+ * and check upcoming category spend (mirrors the user's bank sub-accounts).
  */
 export function WeekLens() {
+  const [weekOffset, setWeekOffset] = useState(0)
   const today = useMemo(() => new Date(), [])
-  const start = today
-  const end = addDays(today, 6)
+  const start = useMemo(() => addDays(today, weekOffset * 7), [today, weekOffset])
+  const end = useMemo(() => addDays(start, 6), [start])
   const startIso = isoDate(start)
   const endIso = isoDate(end)
   const monthIso = monthKey(today)
+  // Always pull a wide enough range that the month-opening anchor + the active
+  // week window are both covered — ledger entries before today still need to
+  // be reflected so the chart matches the rest of the app.
   const fromIso = monthIso < startIso ? monthIso : startIso
-  const nextMonthEnd = new Date(today.getFullYear(), today.getMonth() + 2, 0)
-  const toIso = isoDate(nextMonthEnd)
+  const nextMonthEnd = new Date(start.getFullYear(), start.getMonth() + 2, 0)
+  const toIso = endIso > isoDate(nextMonthEnd) ? endIso : isoDate(nextMonthEnd)
 
   const { data: settings } = useSettings()
   const { data: opening } = useMonthlyOpening(monthIso)
@@ -79,7 +86,7 @@ export function WeekLens() {
 
   // Items in window
   const items = useMemo(() => {
-    const out: Array<{ key: string; date: string; amount: number; description: string }> = []
+    const out: Array<{ key: string; date: string; amount: number; description: string; categoryId: string | null }> = []
     for (const t of txs) {
       if (t.occurred_on >= startIso && t.occurred_on <= endIso) {
         out.push({
@@ -87,6 +94,7 @@ export function WeekLens() {
           date: t.occurred_on,
           amount: Number(t.amount),
           description: t.description?.trim() || (t.category_id ? catMap[t.category_id]?.name : null) || 'Untitled',
+          categoryId: t.category_id ?? null,
         })
       }
     }
@@ -99,25 +107,82 @@ export function WeekLens() {
           date: dIso,
           amount: r.kind === 'income' ? r.amount : -r.amount,
           description: r.name,
+          categoryId: r.category_id ?? null,
         })
       }
     }
     return out.sort((a, b) => a.date.localeCompare(b.date))
   }, [txs, rules, startIso, endIso, start, end, catMap])
 
+  // Category breakdown (expenses only — mirrors how the user funds bank sub-accounts)
+  const byCategory = useMemo(() => {
+    const totals = new Map<string, number>()
+    for (const it of items) {
+      if (it.amount >= 0) continue
+      const key = it.categoryId ?? '__uncategorised__'
+      totals.set(key, (totals.get(key) ?? 0) + -it.amount)
+    }
+    return Array.from(totals.entries())
+      .map(([id, amount]) => ({
+        id,
+        name: id === '__uncategorised__' ? 'Uncategorised' : catMap[id]?.name ?? 'Unknown',
+        color: id === '__uncategorised__' ? null : catMap[id]?.color ?? null,
+        amount,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+  }, [items, catMap])
+
   const chartData = days.map((d) => ({
     label: d.label,
     expense: Math.round(d.expense),
   }))
+
+  // Header label: "This week" / "Next week" / "Last week" / "+N weeks" / "−N weeks"
+  const offsetLabel =
+    weekOffset === 0 ? 'This week' :
+    weekOffset === 1 ? 'Next week' :
+    weekOffset === -1 ? 'Last week' :
+    weekOffset > 0 ? `+${weekOffset} weeks` : `${weekOffset} weeks`
 
   // Suppress unused-variable warning for opening (chosen to keep the hook for future use)
   void opening
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <header>
-        <div className="label">Next 7 days</div>
-        <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">{start.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} — {end.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</h1>
+      <header className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="label">{offsetLabel}</div>
+          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5 truncate">
+            {start.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} — {end.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+          </h1>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => setWeekOffset((w) => w - 1)}
+            className="btn-outline w-9 h-9 px-0 grid place-items-center"
+            aria-label="Previous week"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          {weekOffset !== 0 && (
+            <button
+              type="button"
+              onClick={() => setWeekOffset(0)}
+              className="btn-outline text-xs px-2.5"
+            >
+              Today
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setWeekOffset((w) => w + 1)}
+            className="btn-outline w-9 h-9 px-0 grid place-items-center"
+            aria-label="Next week"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
       </header>
 
       <motion.section
@@ -125,7 +190,7 @@ export function WeekLens() {
         animate={{ opacity: 1, y: 0 }}
         className="card p-5 md:p-7"
       >
-        <div className="label mb-1">Planned this week</div>
+        <div className="label mb-1">Planned</div>
         <div className="stat-num font-semibold text-4xl md:text-5xl">
           {formatMoney(totalExpense, currency)}
         </div>
@@ -161,6 +226,46 @@ export function WeekLens() {
             </AreaChart>
           </ResponsiveContainer>
         </div>
+      </section>
+
+      {/* By category — sub-account funding helper */}
+      <section className="card p-4 md:p-5">
+        <div className="label mb-1">By category</div>
+        <h2 className="font-semibold mb-3">Fund your sub-accounts</h2>
+        {byCategory.length === 0 ? (
+          <div className="text-sm text-fg-subtle">No expenses planned this week.</div>
+        ) : (
+          <div className="divide-y divide-border">
+            {byCategory.map((c) => {
+              const pct = totalExpense > 0 ? (c.amount / totalExpense) * 100 : 0
+              return (
+                <div key={c.id} className="py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: c.color ?? 'rgb(var(--fg-subtle))' }}
+                      />
+                      <span className="text-sm font-medium truncate">{c.name}</span>
+                    </div>
+                    <span className="stat-num text-sm font-semibold tabular-nums">
+                      {formatMoney(c.amount, currency)}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1 rounded-full bg-bg-elev overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${pct}%`,
+                        backgroundColor: c.color ?? 'rgb(var(--fg-subtle))',
+                      }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </section>
 
       <section className="card p-4 md:p-5">
