@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Beer, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { Beer, ChevronRight, ListChecks, Pencil, SquareCheckBig, Trash2, X } from 'lucide-react'
 import {
   useCategories, useDeleteTransaction, useMonthlyOpening, useRecurringRules,
   useSettings, useTransactionsInRange, useUpsertTransaction,
@@ -7,6 +7,7 @@ import {
 import { daysInMonth, formatMoney, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
+import { Modal } from '@/components/ui/Modal'
 import type { Transaction } from '@/lib/db.types'
 
 export function Ledger() {
@@ -132,6 +133,88 @@ export function Ledger() {
     })
   }
 
+  // ── Selection mode ──
+  // User can flip on selection mode to mark arbitrary days, then open a
+  // summary sheet that aggregates totals by category + lists every entry.
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedDays, setSelectedDays] = useState<Set<number>>(() => new Set())
+  const [summaryOpen, setSummaryOpen] = useState(false)
+
+  // Reset selection when switching months / leaving select mode.
+  useEffect(() => {
+    setSelectedDays(new Set())
+    setSelectMode(false)
+  }, [monthIso])
+
+  const toggleSelect = (day: number) => {
+    setSelectedDays((prev) => {
+      const next = new Set(prev)
+      if (next.has(day)) next.delete(day)
+      else next.add(day)
+      return next
+    })
+  }
+
+  // Build the summary payload from currently-selected days.
+  const summary = useMemo(() => {
+    const sortedDays = Array.from(selectedDays).sort((a, b) => a - b)
+    const selectedRows = rows.filter((r) => selectedDays.has(r.day))
+    let income = 0, expense = 0
+    type Item = { key: string; date: string; amount: number; description: string; categoryId: string | null }
+    const items: Item[] = []
+    const byCat = new Map<string, number>() // category_id (or '__uncat__') → expense (positive)
+    for (const r of selectedRows) {
+      for (const t of r.txs) {
+        const amt = Number(t.amount)
+        if (amt >= 0) income += amt
+        else expense += -amt
+        items.push({
+          key: `tx-${t.id}`,
+          date: r.date,
+          amount: amt,
+          description: t.description?.trim() || (t.category_id ? catMap[t.category_id]?.name : null) || 'Untitled',
+          categoryId: t.category_id ?? null,
+        })
+        if (amt < 0) {
+          const k = t.category_id ?? '__uncat__'
+          byCat.set(k, (byCat.get(k) ?? 0) + -amt)
+        }
+      }
+      for (const p of r.pending) {
+        if (p.amount >= 0) income += p.amount
+        else expense += -p.amount
+        items.push({
+          key: `rule-${p.rule_id}-${r.day}`,
+          date: r.date,
+          amount: p.amount,
+          description: p.description,
+          categoryId: p.categoryId,
+        })
+        if (p.amount < 0) {
+          const k = p.categoryId ?? '__uncat__'
+          byCat.set(k, (byCat.get(k) ?? 0) + -p.amount)
+        }
+      }
+    }
+    const categories = Array.from(byCat.entries())
+      .map(([id, amount]) => ({
+        id,
+        name: id === '__uncat__' ? 'Uncategorised' : catMap[id]?.name ?? 'Unknown',
+        color: id === '__uncat__' ? null : catMap[id]?.color ?? null,
+        amount,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+    return {
+      days: sortedDays,
+      itemCount: items.length,
+      items: items.sort((a, b) => a.date.localeCompare(b.date)),
+      income,
+      expense,
+      net: income - expense,
+      categories,
+    }
+  }, [rows, selectedDays, catMap])
+
   // Auto-scroll today's row into view when on the current month
   const todayRowRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
@@ -155,13 +238,35 @@ export function Ledger() {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto pb-32">
       <header className="flex flex-wrap items-center gap-3 justify-between">
         <div>
           <div className="label">Ledger</div>
           <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">{monthLabel}</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {selectMode ? (
+            <>
+              <span className="text-xs text-fg-muted stat-num px-1">
+                {selectedDays.size} selected
+              </span>
+              <button
+                onClick={() => { setSelectMode(false); setSelectedDays(new Set()) }}
+                className="btn-outline"
+                title="Exit selection"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setSelectMode(true)}
+              className="btn-outline"
+              title="Select days"
+            >
+              <ListChecks className="w-4 h-4" />
+            </button>
+          )}
           <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} className="btn-outline">←</button>
           <button onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))} className="btn-outline">Today</button>
           <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="btn-outline">→</button>
@@ -185,28 +290,43 @@ export function Ledger() {
           const isWeekend = dow === 0 || dow === 6
           const expanded = expandedDays.has(row.day)
           const entryCount = row.txs.length + row.pending.length
-          const bgClass = isToday ? 'bg-accent/5' : isWeekend ? 'bg-bg-elev/30 hover:bg-bg-elev/50' : 'hover:bg-bg-elev/40'
+          const isSelected = selectedDays.has(row.day)
+          const bgClass = isSelected
+            ? 'bg-accent/10 hover:bg-accent/15'
+            : isToday ? 'bg-accent/5' : isWeekend ? 'bg-bg-elev/30 hover:bg-bg-elev/50' : 'hover:bg-bg-elev/40'
 
-          // Reused day-badge cluster (chevron + numbered button)
+          // Reused day-badge cluster (chevron + numbered button, OR checkbox in select mode)
           const DayBadge = (
             <div className="flex items-center gap-1.5">
+              {selectMode ? (
+                <button
+                  type="button"
+                  onClick={() => toggleSelect(row.day)}
+                  aria-pressed={isSelected}
+                  aria-label={isSelected ? 'Deselect day' : 'Select day'}
+                  className={`shrink-0 w-6 h-6 grid place-items-center rounded-md border transition-colors ${isSelected ? 'bg-accent text-accent-fg border-accent' : 'border-border text-fg-subtle hover:text-fg hover:border-border-strong'}`}
+                >
+                  {isSelected ? <SquareCheckBig className="w-3.5 h-3.5" /> : null}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => toggleDay(row.day)}
+                  aria-expanded={expanded}
+                  aria-label={expanded ? 'Collapse day' : 'Expand day'}
+                  className="shrink-0 w-6 h-6 grid place-items-center rounded-md text-fg-subtle hover:text-fg hover:bg-bg-elev transition-colors"
+                >
+                  <ChevronRight className={`w-4 h-4 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => toggleDay(row.day)}
-                aria-expanded={expanded}
-                aria-label={expanded ? 'Collapse day' : 'Expand day'}
-                className="shrink-0 w-6 h-6 grid place-items-center rounded-md text-fg-subtle hover:text-fg hover:bg-bg-elev transition-colors"
-              >
-                <ChevronRight className={`w-4 h-4 transition-transform ${expanded ? 'rotate-90' : ''}`} />
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleDay(row.day)}
-                className={`relative w-7 h-7 grid place-items-center rounded-lg text-xs font-semibold stat-num transition-transform active:scale-95 ${isToday ? 'bg-accent text-accent-fg' : isPast ? 'bg-bg-elev text-fg-muted' : 'border border-border text-fg-muted'}`}
-                title={expanded ? 'Collapse' : 'Expand'}
+                onClick={() => selectMode ? toggleSelect(row.day) : toggleDay(row.day)}
+                className={`relative w-7 h-7 grid place-items-center rounded-lg text-xs font-semibold stat-num transition-transform active:scale-95 ${isSelected ? 'bg-accent text-accent-fg ring-2 ring-accent/40' : isToday ? 'bg-accent text-accent-fg' : isPast ? 'bg-bg-elev text-fg-muted' : 'border border-border text-fg-muted'}`}
+                title={selectMode ? (isSelected ? 'Deselect' : 'Select') : (expanded ? 'Collapse' : 'Expand')}
               >
                 {row.day}
-                {isWeekend && !isToday && (
+                {isWeekend && !isToday && !isSelected && (
                   <Beer aria-hidden className="absolute -top-1 -right-1 w-3 h-3 text-amber-400 drop-shadow" />
                 )}
               </button>
@@ -224,7 +344,7 @@ export function Ledger() {
                 {DayBadge}
                 <button
                   type="button"
-                  onClick={() => toggleDay(row.day)}
+                  onClick={() => selectMode ? toggleSelect(row.day) : toggleDay(row.day)}
                   className="min-w-0 text-left"
                 >
                   <div className={`font-semibold stat-num truncate ${row.runningBalance === 0 ? 'text-fg-muted' : row.runningBalance > 0 ? 'text-fg' : 'text-negative'}`}>
@@ -343,6 +463,116 @@ export function Ledger() {
           initialDate={addForDate}
         />
       )}
+
+      {/* Floating "Summary" button — sits next to the FAB. Only shows when at
+          least one day is selected. The FAB lives in the Layout (right-4),
+          so we anchor this button further left to leave room for it. */}
+      {selectMode && selectedDays.size > 0 && (
+        <button
+          type="button"
+          onClick={() => setSummaryOpen(true)}
+          className="fixed z-40 right-[5.75rem] bottom-[calc(5rem+env(safe-area-inset-bottom))] md:right-24 md:bottom-6 glass rounded-full px-4 h-14 grid place-items-center text-accent font-medium shadow-soft active:scale-95"
+          aria-label={`Open summary for ${selectedDays.size} selected days`}
+        >
+          <span className="inline-flex items-center gap-2 text-sm">
+            <ListChecks className="w-5 h-5" />
+            Summary · {selectedDays.size}
+          </span>
+        </button>
+      )}
+
+      <Modal
+        open={summaryOpen}
+        onOpenChange={setSummaryOpen}
+        title="Summary"
+        description={`${summary.days.length} day${summary.days.length === 1 ? '' : 's'} · ${summary.itemCount} ${summary.itemCount === 1 ? 'entry' : 'entries'}`}
+        size="lg"
+      >
+        <div className="space-y-5">
+          {/* Top totals */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="card p-3">
+              <div className="label">Income</div>
+              <div className="stat-num text-lg font-semibold text-positive mt-1">
+                +{formatMoney(summary.income, currency)}
+              </div>
+            </div>
+            <div className="card p-3">
+              <div className="label">Spending</div>
+              <div className="stat-num text-lg font-semibold text-negative mt-1">
+                −{formatMoney(summary.expense, currency)}
+              </div>
+            </div>
+            <div className="card p-3">
+              <div className="label">Net</div>
+              <div className={`stat-num text-lg font-semibold mt-1 ${summary.net >= 0 ? 'text-positive' : 'text-negative'}`}>
+                {formatMoney(summary.net, currency)}
+              </div>
+            </div>
+          </div>
+
+          {/* By category */}
+          <div>
+            <div className="label mb-2">By category</div>
+            {summary.categories.length === 0 ? (
+              <div className="text-sm text-fg-subtle">No spending in selected days.</div>
+            ) : (
+              <div className="divide-y divide-border">
+                {summary.categories.map((c) => {
+                  const pct = summary.expense > 0 ? (c.amount / summary.expense) * 100 : 0
+                  return (
+                    <div key={c.id} className="py-2.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: c.color ?? 'rgb(var(--fg-subtle))' }}
+                          />
+                          <span className="text-sm font-medium truncate">{c.name}</span>
+                        </div>
+                        <span className="stat-num text-sm font-semibold tabular-nums">
+                          {formatMoney(c.amount, currency)}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-1 rounded-full bg-bg-elev overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${pct}%`,
+                            backgroundColor: c.color ?? 'rgb(var(--fg-subtle))',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* All entries */}
+          <div>
+            <div className="label mb-2">All entries</div>
+            {summary.items.length === 0 ? (
+              <div className="text-sm text-fg-subtle">Nothing in selected days.</div>
+            ) : (
+              <div className="divide-y divide-border">
+                {summary.items.map((i) => (
+                  <div key={i.key} className="flex items-center justify-between gap-3 py-2">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{i.description}</div>
+                      <div className="text-[11px] text-fg-subtle stat-num">{i.date}</div>
+                    </div>
+                    <div className={`stat-num text-sm ${i.amount >= 0 ? 'text-positive' : 'text-negative'}`}>
+                      {formatMoney(i.amount, currency)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
