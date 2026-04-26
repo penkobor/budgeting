@@ -28,7 +28,11 @@ export function Modal({ open, onOpenChange, title, description, children, footer
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/55 backdrop-blur-sm animate-fade-in z-40" />
-        <Dialog.Content asChild>
+        <Dialog.Content
+          className="fixed inset-0 z-50 flex max-md:items-end md:items-center md:justify-center pointer-events-none outline-none"
+          // Radix focuses the content on open; without a tabIndex on the wrapper
+          // the inner motion.div would still receive focus from autoFocus children.
+        >
           <motion.div
             drag={typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'y' : false}
             dragControls={dragControls}
@@ -39,13 +43,13 @@ export function Modal({ open, onOpenChange, title, description, children, footer
               if (info.offset.y > 120 || info.velocity.y > 600) onOpenChange(false)
             }}
             className={[
-              'fixed z-50 flex flex-col outline-none',
+              'pointer-events-auto flex flex-col outline-none',
               // Mobile bottom sheet
-              'max-md:inset-x-0 max-md:bottom-0 max-md:max-h-[88vh]',
+              'max-md:w-full max-md:max-h-[88vh]',
               'max-md:bg-bg-card max-md:rounded-t-3xl max-md:shadow-[0_-12px_40px_-8px_rgba(0,0,0,0.5)]',
               'max-md:animate-sheet-up',
               // Desktop centred dialog
-              'md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[92vw]',
+              'md:w-[92vw] md:max-h-[85vh]',
               'md:glass md:rounded-2xl md:p-6 md:animate-slide-up',
               sizeClass,
             ].join(' ')}
