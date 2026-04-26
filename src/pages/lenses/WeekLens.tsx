@@ -5,10 +5,9 @@ import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import {
-  useCategories, useMonthlyOpening, useRecurringRules, useSettings, useTransactionsInRange,
+  useCategories, useMonthlyOpening, useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
 import { formatMoney, isoDate, monthKey } from '@/lib/utils'
-import { expandRuleInRange } from '@/lib/recurring'
 
 function addDays(d: Date, n: number) {
   const out = new Date(d)
@@ -48,14 +47,16 @@ export function WeekLens() {
   const { data: settings } = useSettings()
   const { data: opening } = useMonthlyOpening(monthIso)
   const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
-  const { data: rules = [] } = useRecurringRules()
   const { data: categories = [] } = useCategories()
   const currency = settings?.currency ?? 'CZK'
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
 
-  // Build the canonical list of items in the [start, end] window. Everything
-  // downstream (per-day totals, hero numbers, by-category breakdown, items
-  // list) reads from this list so the numbers can't drift.
+  // Build the canonical list of items in the [start, end] window. Single
+  // source of truth = the ledger — only manual transactions are surfaced
+  // here, mirroring what the user sees on the Ledger page. Recurring-rule
+  // instances still feed the running balance / opening anchor in other
+  // views; here we keep the visible numbers strictly aligned with the
+  // ledger.
   const items = useMemo(() => {
     const out: Array<{ key: string; date: string; amount: number; description: string; categoryId: string | null }> = []
     for (const t of txs) {
@@ -69,21 +70,8 @@ export function WeekLens() {
         })
       }
     }
-    for (const r of rules) {
-      const dates = expandRuleInRange(r, start, end)
-      for (const dIso of dates) {
-        if (txs.some((t) => t.recurring_rule_id === r.id && t.occurred_on === dIso)) continue
-        out.push({
-          key: `rule-${r.id}-${dIso}`,
-          date: dIso,
-          amount: r.kind === 'income' ? r.amount : -r.amount,
-          description: r.name,
-          categoryId: r.category_id ?? null,
-        })
-      }
-    }
     return out.sort((a, b) => a.date.localeCompare(b.date))
-  }, [txs, rules, startIso, endIso, start, end, catMap])
+  }, [txs, startIso, endIso, catMap])
 
   // Per-day totals (derived from the same items list)
   const days = useMemo(() => {

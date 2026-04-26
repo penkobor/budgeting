@@ -195,15 +195,12 @@ export function MonthLens() {
         <div className="label mb-2">Today &amp; upcoming</div>
         <h2 className="font-semibold mb-3">Next 7 days</h2>
         <UpcomingList
-          items={[
-            ...txs.map((t) => ({
-              date: t.occurred_on, amount: Number(t.amount),
-              description: txLabel(t), _txId: t.id,
-            })),
-            ...missingRuleInstances.map((i) => ({
-              date: i.date, amount: i.amount, description: i.description, _txId: undefined,
-            })),
-          ]}
+          items={txs.map((t) => ({
+            date: t.occurred_on,
+            amount: Number(t.amount),
+            description: txLabel(t),
+            _txId: t.id,
+          }))}
           fromIso={isoDate(today)}
           currency={currency}
         />
