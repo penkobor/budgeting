@@ -60,6 +60,20 @@ body {
   * { scrollbar-width: none; -ms-overflow-style: none; }
 }
 
+/* iOS Safari renders native date/time inputs at the locale's intrinsic text
+   width, which on Czech locale ("26. 4. 2026") is wider than tight grid columns
+   and causes horizontal overflow. Force them to the parent's width and strip
+   the native chrome that adds extra horizontal padding. */
+input[type="date"],
+input[type="datetime-local"],
+input[type="month"],
+input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  width: 100%;
+}
+
 :focus-visible {
   outline: 2px solid rgb(var(--accent));
   outline-offset: 2px;
@@ -72,8 +86,7 @@ body {
   .btn-primary { @apply btn bg-accent text-accent-fg hover:bg-accent/90 shadow-soft; }
   .btn-ghost   { @apply btn bg-transparent text-fg hover:bg-bg-elev border border-transparent hover:border-border; }
   .btn-outline { @apply btn bg-transparent border border-border hover:bg-bg-elev text-fg; }
-  .input { @apply w-full rounded-xl bg-bg-elev border border-border px-3.5 py-2.5 md:py-2 text-base md:text-sm placeholder:text-fg-subtle focus:border-accent focus:outline-none transition; }
-  .chip { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-bg-elev border border-border text-fg-muted; }
+  .input { @apply w-full rounded-xl bg-bg-elev border border-border px-3.5 py-2.5 md:py-2 text-base md:text-sm placeholder:text-fg-subtle focus:border-accent focus:outline-none transition; }  .chip { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-bg-elev border border-border text-fg-muted; }
   .label { @apply text-xs font-medium uppercase tracking-wider text-fg-muted; }
   .stat-num { @apply font-mono tabular-nums; }
 

@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Plus, Trash2, ShoppingBag, Send } from 'lucide-react'
 import {
+  CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from 'recharts'
+import {
   useInsertTransactions,
   useMonthlyOpening,
   useRecurringRules,
@@ -112,6 +115,7 @@ export function PlanLens() {
   /**
    * Build daily running balance arrays for baseline (no drafts) and with drafts.
    * Day-by-day so we can spot the *lowest* balance, not just month-end.
+   * Also samples month-end snapshots for the chart.
    */
   const projection = useMemo(() => {
     const opening0 = opening?.opening_balance ?? 0
@@ -141,6 +145,14 @@ export function PlanLens() {
     let lowestWith = withDrafts
     let lowestWithDate = isoDate(horizonStart)
 
+    // Pre-compute the last day of each month in the horizon for sampling
+    const monthEnds = new Set<string>()
+    for (let i = 1; i <= horizonMonths; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth() + i, 0)
+      monthEnds.add(isoDate(d))
+    }
+    const series: Array<{ label: string; iso: string; baseline: number; withDrafts: number }> = []
+
     const cursor = new Date(horizonStart)
     const endTs = horizonEnd.getTime()
     while (cursor.getTime() <= endTs) {
@@ -151,6 +163,14 @@ export function PlanLens() {
       if (withDrafts < lowestWith) {
         lowestWith = withDrafts
         lowestWithDate = iso
+      }
+      if (monthEnds.has(iso)) {
+        series.push({
+          label: cursor.toLocaleDateString(undefined, { month: 'short', year: '2-digit' }),
+          iso,
+          baseline: Math.round(baseline),
+          withDrafts: Math.round(withDrafts),
+        })
       }
       cursor.setDate(cursor.getDate() + 1)
     }
@@ -163,11 +183,11 @@ export function PlanLens() {
       lowestWith,
       lowestWithDate,
       totalDrafts: drafts.reduce((s, d) => s + Math.abs(d.amount), 0),
+      series,
     }
-  }, [opening, txs, rules, drafts, horizonStart, horizonEnd])
+  }, [opening, txs, rules, drafts, horizonStart, horizonEnd, today])
 
   const impact = projection.endWith - projection.endBaseline // negative if drafts hurt
-  const horizonLabel = horizonEnd.toLocaleDateString(undefined, { month: 'short', year: '2-digit' })
   const lowestDateLabel = new Date(projection.lowestWithDate).toLocaleDateString(undefined, {
     day: 'numeric',
     month: 'short',
@@ -186,24 +206,23 @@ export function PlanLens() {
       </header>
 
       {/* Impact summary */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="card p-5 md:p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="card p-5 md:p-6 space-y-5">
+        <div className="grid grid-cols-2 gap-4">
           <div>
             <div className="label">Drafted total</div>
             <div className="stat-num text-2xl md:text-3xl font-semibold mt-1">
               {formatMoney(projection.totalDrafts, currency)}
             </div>
-            <div className="text-xs text-fg-muted mt-1">{drafts.length} item{drafts.length === 1 ? '' : 's'}</div>
-          </div>
-          <div>
-            <div className="label">Balance by {horizonLabel}</div>
-            <div className="stat-num text-2xl md:text-3xl font-semibold mt-1">
-              {formatMoney(projection.endWith, currency)}
-            </div>
-            <div className={`text-xs mt-1 ${impact < 0 ? 'text-negative' : 'text-fg-muted'}`}>
-              {impact < 0
-                ? `${formatMoney(Math.abs(impact), currency)} less than without drafts`
-                : 'Same as without drafts'}
+            <div className="text-xs text-fg-muted mt-1">
+              {drafts.length} item{drafts.length === 1 ? '' : 's'}
+              {impact < 0 && (
+                <>
+                  {' · '}
+                  <span className="text-negative">
+                    −{formatMoney(Math.abs(impact), currency)} impact
+                  </span>
+                </>
+              )}
             </div>
           </div>
           <div>
@@ -215,6 +234,68 @@ export function PlanLens() {
             </div>
             <div className="text-xs text-fg-muted mt-1">on {lowestDateLabel}</div>
           </div>
+        </div>
+
+        {/* Forecast: baseline vs with-drafts (month-end snapshots) */}
+        <div className="h-56 -mx-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={projection.series} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke="rgb(var(--border))" strokeDasharray="3 3" vertical={false} />
+              <XAxis
+                dataKey="label"
+                tick={{ fill: 'rgb(var(--fg-muted))', fontSize: 11 }}
+                axisLine={{ stroke: 'rgb(var(--border))' }}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fill: 'rgb(var(--fg-muted))', fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+                width={56}
+                tickFormatter={(v: number) =>
+                  Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : `${v}`
+                }
+              />
+              <Tooltip
+                contentStyle={{
+                  background: 'rgb(var(--bg-card))',
+                  border: '1px solid rgb(var(--border))',
+                  borderRadius: 12,
+                  fontSize: 12,
+                }}
+                formatter={(v, name) => [formatMoney(Number(v), currency), String(name)]}
+              />
+              <Line
+                type="monotone"
+                dataKey="baseline"
+                name="Without drafts"
+                stroke="rgb(var(--fg-muted))"
+                strokeWidth={2}
+                strokeDasharray="4 4"
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="withDrafts"
+                name="With drafts"
+                stroke="rgb(var(--accent))"
+                strokeWidth={2.5}
+                dot={false}
+                isAnimationActive={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex items-center justify-center gap-4 text-xs text-fg-muted -mt-2">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block w-3 h-0.5 border-t-2 border-dashed border-fg-muted" />
+            Without drafts
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block w-3 h-0.5 bg-accent" />
+            With drafts
+          </span>
         </div>
       </motion.div>
 
