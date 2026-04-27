@@ -10,6 +10,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import {
+  useAssets,
   useCategories,
   useDeleteTransaction,
   useMonthlyOpening,
@@ -51,8 +52,13 @@ export function TodayLens() {
   const { data: rules = [] } = useRecurringRules()
   const { data: overrides = [] } = useRecurringOverridesInRange(monthIso, toIso)
   const { data: categories = [] } = useCategories()
+  const { data: assets = [] } = useAssets()
   const deleteTx = useDeleteTransaction()
   const currency = settings?.currency ?? 'CZK'
+  const assetBoost = useMemo(
+    () => assets.reduce((s, a) => s + (a.include_in_balance ? Number(a.value) : 0), 0),
+    [assets],
+  )
   const catMap = useMemo(
     () => Object.fromEntries(categories.map((c) => [c.id, c])),
     [categories],
@@ -272,8 +278,13 @@ export function TodayLens() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
         <Mini
           label={balanceLabel}
-          value={formatMoney(balance, currency)}
+          value={formatMoney(balance + assetBoost, currency)}
           icon={<Wallet className="w-4 h-4" />}
+          sub={
+            assetBoost > 0
+              ? `cash ${formatMoney(balance, currency)} + assets ${formatMoney(assetBoost, currency)}`
+              : undefined
+          }
         />
       </div>
 

@@ -14,6 +14,8 @@ import type {
   RecurringOverride,
   RecurringOverrideInsert,
   Settings,
+  Asset,
+  AssetInsert,
 } from '@/lib/db.types'
 
 // ---------- Categories ----------
@@ -393,5 +395,47 @@ export function useUpdateSettings() {
       return data as Settings
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  })
+}
+
+// ---------- Assets (BUDG-013) ----------
+export function useAssets() {
+  return useQuery({
+    queryKey: ['assets'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('assets')
+        .select('*')
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return (data ?? []) as Asset[]
+    },
+  })
+}
+
+export function useUpsertAsset() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (asset: AssetInsert) => {
+      const { data, error } = await supabase
+        .from('assets')
+        .upsert(asset)
+        .select()
+        .single()
+      if (error) throw error
+      return data as Asset
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['assets'] }),
+  })
+}
+
+export function useDeleteAsset() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('assets').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['assets'] }),
   })
 }

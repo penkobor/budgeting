@@ -10,6 +10,32 @@ export type Database = {
   __InternalSupabase: { PostgrestVersion: '14.5' }
   public: {
     Tables: {
+      assets: {
+        Row: {
+          created_at: string
+          id: string
+          include_in_balance: boolean
+          name: string
+          notes: string | null
+          type: Database['public']['Enums']['asset_type']
+          updated_at: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          include_in_balance?: boolean
+          name: string
+          notes?: string | null
+          type?: Database['public']['Enums']['asset_type']
+          updated_at?: string
+          user_id?: string
+          value?: number
+        }
+        Update: Partial<Database['public']['Tables']['assets']['Insert']>
+        Relationships: []
+      }
       categories: {
         Row: {
           color: string
@@ -188,7 +214,9 @@ export type Database = {
         Returns: Database['public']['Tables']['transactions']['Row']
       }
     }
-    Enums: Record<string, never>
+    Enums: {
+      asset_type: 'gold' | 'stocks' | 'crypto' | 'cash' | 'other'
+    }
     CompositeTypes: Record<string, never>
   }
 }
@@ -205,3 +233,6 @@ export type MonthlyGoalInsert = Database['public']['Tables']['monthly_goals']['I
 export type RecurringOverride = Database['public']['Tables']['recurring_overrides']['Row']
 export type RecurringOverrideInsert = Database['public']['Tables']['recurring_overrides']['Insert']
 export type Settings = Database['public']['Tables']['settings']['Row']
+export type Asset = Database['public']['Tables']['assets']['Row']
+export type AssetInsert = Database['public']['Tables']['assets']['Insert']
+export type AssetType = Database['public']['Enums']['asset_type']

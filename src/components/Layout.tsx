@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Table, Repeat, Tags, Settings as SettingsIcon, Moon, Sun, LogOut, Plus, Command } from 'lucide-react'
+import { LayoutDashboard, Table, Repeat, Coins, Settings as SettingsIcon, Moon, Sun, LogOut, Plus, Command } from 'lucide-react'
 import { useUi } from '@/store/ui'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
@@ -12,7 +12,7 @@ const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/ledger', label: 'Ledger', icon: Table },
   { to: '/recurring', label: 'Recurring', icon: Repeat },
-  { to: '/categories', label: 'Categories', icon: Tags },
+  { to: '/assets', label: 'Assets', icon: Coins },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ]
 

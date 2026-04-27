@@ -5,6 +5,7 @@ import { Dashboard } from '@/pages/Dashboard'
 import { Ledger } from '@/pages/Ledger'
 import { RecurringPage } from '@/pages/Recurring'
 import { CategoriesPage } from '@/pages/Categories'
+import { AssetsPage } from '@/pages/Assets'
 import { SettingsPage } from '@/pages/Settings'
 import { AuthPage } from '@/pages/AuthPage'
 import { useAuth } from '@/hooks/useAuth'
@@ -34,6 +35,7 @@ function Gate() {
         <Route path="/ledger" element={<Ledger />} />
         <Route path="/recurring" element={<RecurringPage />} />
         <Route path="/categories" element={<CategoriesPage />} />
+        <Route path="/assets" element={<AssetsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

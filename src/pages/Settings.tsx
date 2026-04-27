@@ -1,11 +1,9 @@
-import { useState } from 'react'
-import { useMonthlyOpening, useSetMonthlyOpening, useSettings, useUpdateSettings } from '@/hooks/queries'
+import { Link } from 'react-router-dom'
+import { Tags, ChevronRight } from 'lucide-react'
+import { useSettings, useUpdateSettings } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
 import { useUi } from '@/store/ui'
-import { monthKey } from '@/lib/utils'
-import { seedAprilFromNumbers } from '@/lib/seed'
 import { supabase } from '@/lib/supabase'
-import { useQueryClient } from '@tanstack/react-query'
 import { APP_VERSION, BUILD_SHA, BUILD_TIME, formatBuildTime } from '@/lib/version'
 
 export function SettingsPage() {
@@ -13,29 +11,6 @@ export function SettingsPage() {
   const update = useUpdateSettings()
   const { theme, setTheme } = useUi()
   const { user } = useAuth()
-  const qc = useQueryClient()
-
-  const today = new Date()
-  const [month, setMonth] = useState(monthKey(new Date(today.getFullYear(), today.getMonth(), 1)))
-  const { data: opening } = useMonthlyOpening(month)
-  const setOpening = useSetMonthlyOpening()
-  const [openingValue, setOpeningValue] = useState('')
-  const [seedMsg, setSeedMsg] = useState<string | null>(null)
-  const [seedErr, setSeedErr] = useState<string | null>(null)
-  const [seeding, setSeeding] = useState(false)
-
-  const seed = async () => {
-    setSeeding(true); setSeedErr(null); setSeedMsg(null)
-    try {
-      await seedAprilFromNumbers()
-      setSeedMsg('Seeded! April 2026 is loaded.')
-      qc.invalidateQueries()
-    } catch (e: unknown) {
-      setSeedErr(e instanceof Error ? e.message : 'Seed failed')
-    } finally {
-      setSeeding(false)
-    }
-  }
 
   return (
     <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-2xl mx-auto">
@@ -78,58 +53,20 @@ export function SettingsPage() {
         </div>
       </section>
 
-      <section className="card p-4 md:p-5 space-y-3 md:space-y-4">
-        <h2 className="font-semibold">Opening balance</h2>
-        <p className="text-sm text-fg-muted">Set the starting balance for a given month — used as the anchor for the running balance.</p>
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2 md:items-end">
-          <div>
-            <div className="label mb-1.5">Month</div>
-            <input type="month" className="input stat-num" value={month.slice(0, 7)}
-              onChange={(e) => setMonth(`${e.target.value}-01`)} />
+      <section className="card p-0 overflow-hidden">
+        <Link
+          to="/categories"
+          className="flex items-center gap-3 p-4 md:p-5 hover:bg-bg-elev/50 transition-colors"
+        >
+          <div className="w-9 h-9 rounded-xl bg-accent/10 text-accent grid place-items-center shrink-0">
+            <Tags className="w-4 h-4" />
           </div>
-          <div>
-            <div className="label mb-1.5">Balance</div>
-            <input
-              className="input stat-num"
-              inputMode="decimal"
-              placeholder={opening ? String(opening.opening_balance) : '0'}
-              value={openingValue}
-              onChange={(e) => setOpeningValue(e.target.value)}
-            />
+          <div className="flex-1 min-w-0">
+            <div className="font-medium">Categories</div>
+            <div className="text-xs text-fg-subtle">Tags &amp; colors for transactions</div>
           </div>
-          <button
-            onClick={async () => {
-              const n = parseFloat(openingValue.replace(',', '.'))
-              if (!Number.isNaN(n)) {
-                await setOpening.mutateAsync({ month, opening_balance: n })
-                setOpeningValue('')
-              }
-            }}
-            className="btn-primary md:self-end"
-          >
-            Save
-          </button>
-        </div>
-        {opening && (
-          <div className="text-xs text-fg-subtle stat-num">
-            Current: {opening.opening_balance}
-            {(opening as { derived_from?: string }).derived_from && (
-              <span className="text-fg-muted ml-2">
-                · auto-derived from {(opening as { derived_from?: string }).derived_from}
-              </span>
-            )}
-          </div>
-        )}
-      </section>
-
-      <section className="card p-4 md:p-5 space-y-3">
-        <h2 className="font-semibold">Seed sample data</h2>
-        <p className="text-sm text-fg-muted">Loads your April 2026 Numbers spreadsheet (Fixed payments + daily ledger). Only works on an empty account.</p>
-        <button onClick={seed} disabled={seeding} className="btn-outline">
-          {seeding ? 'Seeding…' : 'Import April 2026'}
-        </button>
-        {seedMsg && <div className="text-sm text-positive bg-positive/10 border border-positive/20 rounded-xl px-3 py-2">{seedMsg}</div>}
-        {seedErr && <div className="text-sm text-negative bg-negative/10 border border-negative/20 rounded-xl px-3 py-2">{seedErr}</div>}
+          <ChevronRight className="w-4 h-4 text-fg-subtle" />
+        </Link>
       </section>
 
       <section className="card p-4 md:p-5 space-y-1.5">
