@@ -1,6 +1,6 @@
 # BUDG-012 — FEAT | Monthly Goal + Rebalance Flow
 
-**Status:** Phase 2 done (data + projection + Goal hero card)
+**Status:** Phase 3 done (data + projection + Goal card + rebalance flow); Phase 4 (atomic RPC) + Phase 5 (polish) pending
 **Branch:** `feature/budg-012-monthly-goal-rebalance`
 **Depends on:** existing recurring engine ([[BUDG-001]]), Forecast lens ([[BUDG-003]])
 
@@ -45,17 +45,18 @@ Triggered only when adding **expense** transactions. Income/transfers save norma
 - [x] Clear action in edit sheet (replaces long-press menu).
 
 ### ST4 — Rebalance nested-drawer step
-- [ ] Detect overage on Save inside `AddTransactionDialog`.
-- [ ] Nested vaul step (slide-in from right) with future planned expenses list.
-- [ ] Even-distribution badges per selected item.
-- [ ] "Adjust manually" toggle → inline editable per-row mini-fields with running total.
-- [ ] Auto-exclude items going ≤ 0; redistribute remainder.
-- [ ] Sticky footer: Apply (disabled until covered) | Save anyway (with confirm) | ← Back.
+- [x] Detect overage on Save inside `AddTransactionDialog`.
+- [x] Step 2 inside the same Modal (cross-fade), with future planned expenses list.
+- [x] Even-distribution badges per selected item.
+- [x] “Adjust manually” toggle → inline editable per-row mini-fields with running total.
+- [x] Auto-exclude items going ≤ 0; redistribute remainder.
+- [x] Sticky footer: Apply (disabled until covered) | Save anyway (with confirm) | ← Back.
 
 ### ST5 — Atomic apply mutation
-- [ ] Single Supabase RPC or batched mutation: insert tx + upsert overrides for selected items.
-- [ ] On failure: rollback in client (RQ optimistic update with revert).
-- [ ] Toast: "Rebalanced — back on track ✓".
+- [x] Sequential client-side mutation (overrides upsert → tx upsert).
+- [ ] Single Supabase RPC or batched edge function. *(Phase 4)*
+- [ ] On failure: rollback in client. *(Phase 4)*
+- [x] Success path closes the sheet; toast left to Phase 5.
 
 ### ST6 — Visibility & polish
 - [ ] Dashboard alert ribbon when goal exceeded.
@@ -67,6 +68,7 @@ Triggered only when adding **expense** transactions. Income/transfers save norma
 - [ ] [[BUDG-012 - ADR-002 - Recurring overrides table over template mutation]]
 
 ## Implementation Log
+- [[BUDG-012 - 2026-04-27 - phase3-rebalance-step]] — step machine + RebalanceStep + distributeEvenly
 - [[BUDG-012 - 2026-04-27 - phase2-goal-hero-card]] — MonthlyGoalCard + MonthLens integration
 - [[BUDG-012 - 2026-04-27 - phase1-data-and-projection]] — migrations, types, hooks, projection helper
 

@@ -115,3 +115,102 @@ export function listFuturePlannedExpenses(
   out.sort((a, b) => a.date.localeCompare(b.date))
   return out
 }
+
+/**
+ * Even-distribution algorithm with clamping.
+ *
+ * Given a set of selected planned-expense occurrences and a total overage to
+ * cover, return how much to subtract from each. Items that would go ≤ 0 are
+ * auto-excluded; the leftover is redistributed across the remaining items.
+ *
+ * Returns:
+ *  - `deltas`: Map<occurrenceKey, amountSubtracted>  (positive numbers, ≤ original amount)
+ *  - `excluded`: keys that were auto-excluded because they couldn't absorb their share
+ *  - `covered`: how much of `overage` was actually absorbed
+ *  - `leftover`: overage − covered (≥ 0; should be 0 if total selected amount ≥ overage)
+ */
+export type PlannedOccurrenceKey = string // `${ruleId}|${date}`
+export const occKey = (ruleId: string, date: string): PlannedOccurrenceKey => `${ruleId}|${date}`
+
+export interface DistributionResult {
+  deltas: Map<PlannedOccurrenceKey, number>
+  excluded: Set<PlannedOccurrenceKey>
+  covered: number
+  leftover: number
+}
+
+export function distributeEvenly(
+  items: PlannedOccurrence[],
+  overage: number
+): DistributionResult {
+  const deltas = new Map<PlannedOccurrenceKey, number>()
+  const excluded = new Set<PlannedOccurrenceKey>()
+  if (overage <= 0 || items.length === 0) {
+    return { deltas, excluded, covered: 0, leftover: Math.max(0, overage) }
+  }
+
+  // Round to cents.
+  const cents = Math.round(overage * 100)
+  let remaining = cents
+  let pool = items.map((i) => ({
+    key: occKey(i.ruleId, i.date),
+    capCents: Math.round(i.amount * 100), // can't subtract more than the full amount
+  }))
+
+  // Iterate: split evenly across pool; any item whose share exceeds its cap
+  // contributes its full cap and is removed; remaining = overage − contributions;
+  // re-split across the survivors. Stops when stable or pool empty.
+  while (pool.length > 0 && remaining > 0) {
+    const share = Math.floor(remaining / pool.length)
+    if (share === 0) break
+
+    const overflowed: typeof pool = []
+    let absorbedThisPass = 0
+
+    for (const item of pool) {
+      const take = Math.min(share, item.capCents)
+      if (take >= item.capCents) {
+        // exhausted — record full cap and exclude from further passes
+        deltas.set(item.key, (deltas.get(item.key) ?? 0) + item.capCents)
+        absorbedThisPass += item.capCents
+        excluded.add(item.key)
+      } else {
+        deltas.set(item.key, (deltas.get(item.key) ?? 0) + take)
+        absorbedThisPass += take
+        item.capCents -= take
+        overflowed.push(item)
+      }
+    }
+
+    remaining -= absorbedThisPass
+    if (overflowed.length === pool.length && absorbedThisPass === 0) break
+    pool = overflowed
+  }
+
+  // Distribute the last few cents to whoever can still absorb them.
+  if (remaining > 0 && pool.length > 0) {
+    for (const item of pool) {
+      if (remaining === 0) break
+      const take = Math.min(item.capCents, remaining)
+      if (take > 0) {
+        deltas.set(item.key, (deltas.get(item.key) ?? 0) + take)
+        remaining -= take
+      }
+    }
+  }
+
+  // Convert back to currency
+  const out = new Map<PlannedOccurrenceKey, number>()
+  let coveredCents = 0
+  deltas.forEach((c, k) => {
+    out.set(k, c / 100)
+    coveredCents += c
+  })
+
+  return {
+    deltas: out,
+    excluded,
+    covered: coveredCents / 100,
+    leftover: Math.max(0, (cents - coveredCents) / 100),
+  }
+}
