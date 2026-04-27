@@ -9,6 +9,10 @@ import type {
   Transaction,
   TransactionInsert,
   MonthlyOpening,
+  MonthlyGoal,
+  MonthlyGoalInsert,
+  RecurringOverride,
+  RecurringOverrideInsert,
   Settings,
 } from '@/lib/db.types'
 
@@ -220,6 +224,95 @@ export function useSetMonthlyOpening() {
       return data as MonthlyOpening
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['monthly_opening'] }),
+  })
+}
+
+// ---------- Monthly goals (BUDG-012) ----------
+export function useMonthlyGoal(yearMonth: string) {
+  return useQuery({
+    queryKey: ['monthly_goal', yearMonth],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('monthly_goals')
+        .select('*')
+        .eq('year_month', yearMonth)
+        .maybeSingle()
+      if (error) throw error
+      return (data ?? null) as MonthlyGoal | null
+    },
+  })
+}
+
+export function useUpsertMonthlyGoal() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (g: MonthlyGoalInsert) => {
+      const { data, error } = await supabase
+        .from('monthly_goals')
+        .upsert(g, { onConflict: 'user_id,year_month' })
+        .select()
+        .single()
+      if (error) throw error
+      return data as MonthlyGoal
+    },
+    onSuccess: (g) => qc.invalidateQueries({ queryKey: ['monthly_goal', g.year_month] }),
+  })
+}
+
+export function useDeleteMonthlyGoal() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (yearMonth: string) => {
+      const { error } = await supabase.from('monthly_goals').delete().eq('year_month', yearMonth)
+      if (error) throw error
+    },
+    onSuccess: (_, yearMonth) => qc.invalidateQueries({ queryKey: ['monthly_goal', yearMonth] }),
+  })
+}
+
+// ---------- Recurring overrides (BUDG-012) ----------
+export function useRecurringOverridesInRange(fromIso: string, toIso: string) {
+  return useQuery({
+    queryKey: ['recurring_overrides', fromIso, toIso],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('recurring_overrides')
+        .select('*')
+        .gte('occurrence_date', fromIso)
+        .lte('occurrence_date', toIso)
+      if (error) throw error
+      return (data ?? []) as RecurringOverride[]
+    },
+  })
+}
+
+export function useUpsertRecurringOverrides() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (rows: RecurringOverrideInsert[]) => {
+      if (rows.length === 0) return [] as RecurringOverride[]
+      const { data, error } = await supabase
+        .from('recurring_overrides')
+        .upsert(rows, { onConflict: 'recurring_rule_id,occurrence_date' })
+        .select()
+      if (error) throw error
+      return data as RecurringOverride[]
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['recurring_overrides'] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+    },
+  })
+}
+
+export function useDeleteRecurringOverride() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('recurring_overrides').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recurring_overrides'] }),
   })
 }
 

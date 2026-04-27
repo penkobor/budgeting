@@ -52,6 +52,48 @@ export type Database = {
         Update: Partial<Database['public']['Tables']['monthly_openings']['Insert']>
         Relationships: []
       }
+      monthly_goals: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+          year_month: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+          year_month: string
+        }
+        Update: Partial<Database['public']['Tables']['monthly_goals']['Insert']>
+        Relationships: []
+      }
+      recurring_overrides: {
+        Row: {
+          amount_override: number | null
+          created_at: string
+          id: string
+          occurrence_date: string
+          recurring_rule_id: string
+          skipped: boolean
+          user_id: string
+        }
+        Insert: {
+          amount_override?: number | null
+          created_at?: string
+          id?: string
+          occurrence_date: string
+          recurring_rule_id: string
+          skipped?: boolean
+          user_id?: string
+        }
+        Update: Partial<Database['public']['Tables']['recurring_overrides']['Insert']>
+        Relationships: []
+      }
       recurring_rules: {
         Row: {
           active: boolean
@@ -153,4 +195,8 @@ export type RecurringRuleInsert = Database['public']['Tables']['recurring_rules'
 export type Transaction = Database['public']['Tables']['transactions']['Row']
 export type TransactionInsert = Database['public']['Tables']['transactions']['Insert']
 export type MonthlyOpening = Database['public']['Tables']['monthly_openings']['Row']
+export type MonthlyGoal = Database['public']['Tables']['monthly_goals']['Row']
+export type MonthlyGoalInsert = Database['public']['Tables']['monthly_goals']['Insert']
+export type RecurringOverride = Database['public']['Tables']['recurring_overrides']['Row']
+export type RecurringOverrideInsert = Database['public']['Tables']['recurring_overrides']['Insert']
 export type Settings = Database['public']['Tables']['settings']['Row']
