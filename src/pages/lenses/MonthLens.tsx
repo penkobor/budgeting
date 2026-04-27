@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import { ArrowDownRight, ArrowUpRight, Target } from 'lucide-react'
 import {
-  useCategories, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules, useSettings, useTransactionsInRange,
+  useAssets, useCategories, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules, useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
 import { daysInMonth, formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
@@ -27,6 +27,11 @@ export function MonthLens() {
   const { data: rules = [] } = useRecurringRules()
   const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
   const { data: categories = [] } = useCategories()
+  const { data: assets = [] } = useAssets()
+  const assetBoost = useMemo(
+    () => assets.reduce((s, a) => s + (a.include_in_balance ? Number(a.value) : 0), 0),
+    [assets],
+  )
 
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
   const txLabel = (t: { description: string | null; category_id: string | null }) =>
@@ -137,15 +142,21 @@ export function MonthLens() {
 
       <MonthlyGoalCard
         yearMonth={`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`}
-        projectedEnd={series.totals.projectedEnd}
+        projectedEnd={series.totals.projectedEnd + assetBoost}
         currency={currency}
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <Kpi
           label="Current balance"
-          value={formatMoney(series.totals.currentBalance, currency)}
-          sub={series.sameMonth ? `As of day ${series.todayDay}` : 'End of month'}
+          value={formatMoney(series.totals.currentBalance + assetBoost, currency)}
+          sub={
+            assetBoost > 0
+              ? `cash ${formatMoney(series.totals.currentBalance, currency)} + assets ${formatMoney(assetBoost, currency)}`
+              : series.sameMonth
+                ? `As of day ${series.todayDay}`
+                : 'End of month'
+          }
           tone="default"
         />
         <Kpi
@@ -156,7 +167,7 @@ export function MonthLens() {
         />
         <Kpi
           label="Projected end"
-          value={formatMoney(series.totals.projectedEnd, currency)}
+          value={formatMoney(series.totals.projectedEnd + assetBoost, currency)}
           sub={`Profit ${formatMoney(series.totals.profit, currency)}`}
           tone={series.totals.profit >= 0 ? 'positive' : 'negative'}
           icon={<Target className="w-4 h-4" />}

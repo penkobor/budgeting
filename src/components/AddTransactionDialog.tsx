@@ -9,6 +9,7 @@ import {
 } from './RebalanceStep'
 import {
   useApplyRebalance,
+  useAssets,
   useCategories,
   useMonthlyGoal,
   useMonthlyOpening,
@@ -89,6 +90,11 @@ export function AddTransactionDialog({
   const { data: monthTxs = [] } = useTransactionsInRange(fromIso, toIso)
   const { data: rules = [] } = useRecurringRules()
   const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
+  const { data: assets = [] } = useAssets()
+  const assetBoost = assets.reduce(
+    (s, a) => s + (a.include_in_balance ? Number(a.value) : 0),
+    0,
+  )
 
   const currency = settings?.currency ?? 'CZK'
 
@@ -175,6 +181,8 @@ export function AddTransactionDialog({
         txsWithNew,
         rules,
         overrides,
+        new Date(),
+        assetBoost,
       )
       const goalAmount = Number(goal.amount)
       if (projected < goalAmount) {

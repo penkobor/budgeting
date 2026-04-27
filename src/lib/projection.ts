@@ -60,7 +60,9 @@ export function computeProjectedEndBalance(
   // MonthLens running balance. The parameter is kept on the signature for
   // back-compat with call sites that pass an explicit clock.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _today: Date = new Date()
+  _today: Date = new Date(),
+  /** Sum of asset values flagged include_in_balance (BUDG-013). */
+  assetBoost: number = 0,
 ): number {
   const monthStart = new Date(monthIso + 'T00:00:00')
   const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0)
@@ -98,7 +100,7 @@ export function computeProjectedEndBalance(
     }
   }
 
-  return Math.round(total * 100) / 100
+  return Math.round((total + assetBoost) * 100) / 100
 }
 
 /**

@@ -5,6 +5,7 @@ import {
   CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import {
+  useAssets,
   useInsertTransactions,
   useMonthlyOpening,
   useRecurringOverridesInRange,
@@ -67,6 +68,11 @@ export function PlanLens() {
   const toIso = horizonEnd.toISOString().slice(0, 10)
   const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
   const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
+  const { data: assets = [] } = useAssets()
+  const assetBoost = useMemo(
+    () => assets.reduce((s, a) => s + (a.include_in_balance ? Number(a.value) : 0), 0),
+    [assets],
+  )
 
   // Drafts (local-only)
   const [drafts, setDrafts] = useState<Draft[]>(() => loadDrafts())
@@ -244,11 +250,16 @@ export function PlanLens() {
           <div>
             <div className="label">Lowest balance ahead</div>
             <div
-              className={`stat-num text-2xl md:text-3xl font-semibold mt-1 ${projection.lowestWith < 0 ? 'text-negative' : ''}`}
+              className={`stat-num text-2xl md:text-3xl font-semibold mt-1 ${projection.lowestWith + assetBoost < 0 ? 'text-negative' : ''}`}
             >
-              {formatMoney(projection.lowestWith, currency)}
+              {formatMoney(projection.lowestWith + assetBoost, currency)}
             </div>
-            <div className="text-xs text-fg-muted mt-1">on {lowestDateLabel}</div>
+            <div className="text-xs text-fg-muted mt-1">
+              on {lowestDateLabel}
+              {assetBoost > 0 && (
+                <> · incl. assets {formatMoney(assetBoost, currency)}</>
+              )}
+            </div>
           </div>
         </div>
 

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AlertTriangle, ChevronRight } from 'lucide-react'
 import {
+  useAssets,
   useMonthlyGoal,
   useMonthlyOpening,
   useTransactionsInRange,
@@ -31,8 +32,13 @@ export function GoalAlertRibbon() {
   const { data: txs = [] } = useTransactionsInRange(monthIso, toIso)
   const { data: rules = [] } = useRecurringRules()
   const { data: overrides = [] } = useRecurringOverridesInRange(monthIso, toIso)
+  const { data: assets = [] } = useAssets()
 
   const currency = settings?.currency ?? 'CZK'
+  const assetBoost = useMemo(
+    () => assets.reduce((s, a) => s + (a.include_in_balance ? Number(a.value) : 0), 0),
+    [assets],
+  )
 
   const projectedEnd = useMemo(() => {
     return computeProjectedEndBalance(
@@ -42,8 +48,9 @@ export function GoalAlertRibbon() {
       rules,
       overrides,
       today,
+      assetBoost,
     )
-  }, [monthIso, opening, txs, rules, overrides, today])
+  }, [monthIso, opening, txs, rules, overrides, today, assetBoost])
 
   const overBy = goal ? Number(goal.amount) - projectedEnd : 0
   const showRibbon = !!goal && overBy > 0

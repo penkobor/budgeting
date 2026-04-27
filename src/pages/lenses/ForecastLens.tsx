@@ -4,7 +4,7 @@ import { Sliders } from 'lucide-react'
 import {
   Area, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine, Line, ComposedChart,
 } from 'recharts'
-import { useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules, useSettings, useTransactionsInRange } from '@/hooks/queries'
+import { useAssets, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules, useSettings, useTransactionsInRange } from '@/hooks/queries'
 import { formatMoney, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
@@ -38,6 +38,11 @@ export function ForecastLens() {
   const toIso = horizonEnd.toISOString().slice(0, 10)
   const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
   const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
+  const { data: assets = [] } = useAssets()
+  const assetBoost = useMemo(
+    () => assets.reduce((s, a) => s + (a.include_in_balance ? Number(a.value) : 0), 0),
+    [assets],
+  )
 
   // Build month-by-month projection
   const series = useMemo(() => {
@@ -126,13 +131,16 @@ export function ForecastLens() {
         className="card p-5 md:p-7"
       >
         <div className="label mb-1">Projected balance · {last?.label}</div>
-        <div className={`stat-num font-semibold text-3xl md:text-4xl ${(scenarioActive ? last?.scenarioBalance : last?.baselineBalance ?? 0) >= opening0 ? 'text-positive' : 'text-negative'}`}>
-          {formatMoney(scenarioActive ? last?.scenarioBalance ?? 0 : last?.baselineBalance ?? 0, currency)}
+        <div className={`stat-num font-semibold text-3xl md:text-4xl ${(scenarioActive ? (last?.scenarioBalance ?? 0) : (last?.baselineBalance ?? 0)) + assetBoost >= opening0 + assetBoost ? 'text-positive' : 'text-negative'}`}>
+          {formatMoney((scenarioActive ? last?.scenarioBalance ?? 0 : last?.baselineBalance ?? 0) + assetBoost, currency)}
         </div>
         <div className="text-xs md:text-sm text-fg-subtle mt-2 stat-num">
-          From opening {formatMoney(opening0, currency)}
+          From opening {formatMoney(opening0 + assetBoost, currency)}
           {scenarioActive && (
-            <> · baseline {formatMoney(last?.baselineBalance ?? 0, currency)}</>
+            <> · baseline {formatMoney((last?.baselineBalance ?? 0) + assetBoost, currency)}</>
+          )}
+          {assetBoost > 0 && (
+            <> · incl. assets {formatMoney(assetBoost, currency)}</>
           )}
         </div>
       </motion.section>
