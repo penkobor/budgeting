@@ -67,7 +67,14 @@ export function TodayLens() {
   const dayTxs = useMemo(() => txs.filter((t) => t.occurred_on === viewedIso), [txs, viewedIso])
 
   const dayRuleHits = useMemo(() => {
-    const out: Array<{ rule_id: string; amount: number; description: string; categoryId: string | null }> = []
+    const out: Array<{
+      rule_id: string
+      amount: number
+      originalAmount: number
+      overridden: boolean
+      description: string
+      categoryId: string | null
+    }> = []
     const d = new Date(viewedIso + 'T00:00:00')
     const realisedKeys = new Set(
       txs
@@ -79,9 +86,12 @@ export function TodayLens() {
       for (const dIso of expandRuleInRange(r, d, d)) {
         const eff = effectiveOccurrenceAmount(r, dIso, overrides)
         if (eff == null) continue
+        const original = r.kind === 'income' ? r.amount : -r.amount
         out.push({
           rule_id: r.id,
           amount: eff,
+          originalAmount: original,
+          overridden: Math.abs(eff - original) > 0.005,
           description: r.name,
           categoryId: r.category_id,
         })
@@ -144,6 +154,8 @@ export function TodayLens() {
         recurring: true
         ruleId: string
         categoryId: string | null
+        originalAmount: number
+        overridden: boolean
       }
 
   const items = useMemo<Item[]>(() => {
@@ -165,6 +177,8 @@ export function TodayLens() {
         recurring: true,
         ruleId: i.rule_id,
         categoryId: i.categoryId,
+        originalAmount: i.originalAmount,
+        overridden: i.overridden,
       })),
     ]
     return out.sort((a, b) => a.amount - b.amount)
@@ -301,7 +315,20 @@ export function TodayLens() {
                           recurring
                         </span>
                       )}
+                      {i.recurring && i.overridden && (
+                        <span
+                          className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent shrink-0"
+                          title={`Trimmed from ${formatMoney(i.originalAmount, currency)} via rebalance`}
+                        >
+                          trimmed
+                        </span>
+                      )}
                     </div>
+                    {i.recurring && i.overridden && (
+                      <div className="text-[11px] text-fg-subtle stat-num mt-0.5">
+                        was <span className="line-through">{formatMoney(i.originalAmount, currency)}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

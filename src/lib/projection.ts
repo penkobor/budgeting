@@ -21,6 +21,20 @@ export function effectiveOccurrenceAmount(
 }
 
 /**
+ * Look up an override row for a given (rule, date) pair.
+ * Used by lenses to flag trimmed/skipped occurrences with a visible badge.
+ */
+export function findOverride(
+  ruleId: string,
+  date: string,
+  overrides: RecurringOverride[],
+): RecurringOverride | undefined {
+  return overrides.find(
+    (o) => o.recurring_rule_id === ruleId && o.occurrence_date === date,
+  )
+}
+
+/**
  * Compute the projected end-of-month balance for the given month.
  *
  *   projected_end_balance = opening_balance

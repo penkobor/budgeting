@@ -60,7 +60,7 @@ export function WeekLens() {
   // contributes a default occurrence per day, deduped against any manual
   // override that links back via recurring_rule_id).
   const items = useMemo(() => {
-    const out: Array<{ key: string; date: string; amount: number; description: string; categoryId: string | null; recurring: boolean }> = []
+    const out: Array<{ key: string; date: string; amount: number; description: string; categoryId: string | null; recurring: boolean; originalAmount?: number; overridden?: boolean }> = []
     for (const t of txs) {
       if (t.occurred_on >= startIso && t.occurred_on <= endIso) {
         out.push({
@@ -79,6 +79,7 @@ export function WeekLens() {
         if (txs.some((t) => t.recurring_rule_id === r.id && t.occurred_on === dIso)) continue
         const eff = effectiveOccurrenceAmount(r, dIso, overrides)
         if (eff == null) continue
+        const original = r.kind === 'income' ? r.amount : -r.amount
         out.push({
           key: `rule-${r.id}-${dIso}`,
           date: dIso,
@@ -86,6 +87,8 @@ export function WeekLens() {
           description: r.name,
           categoryId: r.category_id ?? null,
           recurring: true,
+          originalAmount: original,
+          overridden: Math.abs(eff - original) > 0.005,
         })
       }
     }
@@ -291,8 +294,24 @@ export function WeekLens() {
                     {i.recurring && (
                       <span className="text-[10px] text-fg-subtle uppercase tracking-wider shrink-0">recurring</span>
                     )}
+                    {i.recurring && i.overridden && (
+                      <span
+                        className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent shrink-0"
+                        title={`Trimmed from ${formatMoney(i.originalAmount ?? 0, currency)} via rebalance`}
+                      >
+                        trimmed
+                      </span>
+                    )}
                   </div>
-                  <div className="text-xs text-fg-subtle stat-num">{i.date}</div>
+                  <div className="text-xs text-fg-subtle stat-num">
+                    {i.date}
+                    {i.recurring && i.overridden && (
+                      <>
+                        {' · was '}
+                        <span className="line-through">{formatMoney(i.originalAmount ?? 0, currency)}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className={`stat-num text-sm ${i.amount >= 0 ? 'text-positive' : 'text-negative'}`}>
                   {formatMoney(i.amount, currency)}

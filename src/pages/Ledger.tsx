@@ -45,7 +45,7 @@ export function Ledger() {
   // the projection used by goal trigger and rebalance flow.
   const pendingByDay = useMemo(() => {
     const have = new Set(txs.filter((t) => t.recurring_rule_id).map((t) => `${t.recurring_rule_id}|${t.occurred_on}`))
-    const map: Record<number, Array<{ rule_id: string; amount: number; description: string; categoryId: string | null }>> = {}
+    const map: Record<number, Array<{ rule_id: string; amount: number; originalAmount: number; overridden: boolean; description: string; categoryId: string | null }>> = {}
     const f = new Date(fromIso + 'T00:00:00')
     const tt = new Date(toIso + 'T00:00:00')
     for (const r of rules) {
@@ -53,10 +53,13 @@ export function Ledger() {
         if (have.has(`${r.id}|${d}`)) continue
         const eff = effectiveOccurrenceAmount(r, d, overrides)
         if (eff == null) continue // skipped via override
+        const original = r.kind === 'income' ? r.amount : -r.amount
         const day = parseInt(d.slice(8, 10), 10)
         ;(map[day] ??= []).push({
           rule_id: r.id,
           amount: eff,
+          originalAmount: original,
+          overridden: Math.abs(eff - original) > 0.005,
           description: r.name,
           categoryId: r.category_id,
         })
@@ -79,7 +82,7 @@ export function Ledger() {
       income: number;
       expense: number;
       txs: Transaction[];
-      pending: Array<{ rule_id: string; amount: number; description: string; categoryId: string | null }>;
+      pending: Array<{ rule_id: string; amount: number; originalAmount: number; overridden: boolean; description: string; categoryId: string | null }>;
     }> = []
     let balance = opening0
     for (let d = 1; d <= lastDay; d++) {
@@ -436,8 +439,21 @@ export function Ledger() {
                     />
                     <span className="truncate">{p.description}</span>
                     <span className="text-[10px] text-fg-subtle uppercase tracking-wider shrink-0">recurring</span>
+                    {p.overridden && (
+                      <span
+                        className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent shrink-0"
+                        title={`Trimmed from ${formatMoney(p.originalAmount, currency)} via rebalance`}
+                      >
+                        trimmed
+                      </span>
+                    )}
                     <span className={`stat-num text-xs ml-1 ${p.amount >= 0 ? 'text-positive' : 'text-negative'}`}>
                       {formatMoney(p.amount, currency)}
+                      {p.overridden && (
+                        <span className="ml-1 text-fg-subtle line-through text-[10px]">
+                          {formatMoney(p.originalAmount, currency)}
+                        </span>
+                      )}
                     </span>
                     <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
