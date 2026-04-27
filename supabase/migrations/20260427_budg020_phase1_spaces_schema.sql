@@ -76,12 +76,14 @@ alter table public.transactions
   add column if not exists space_id uuid references public.spaces(id) on delete set null,
   add column if not exists space_category_id uuid references public.space_categories(id) on delete set null;
 
--- Both NULL (personal) or both NOT NULL (shared) — never one without the other.
+-- A space_category_id is only meaningful when the row is shared (space_id set).
+-- Shared rows MAY be uncategorized — symmetrical with personal rows whose
+-- category_id is freely nullable.
 alter table public.transactions
   drop constraint if exists transactions_space_consistency_chk;
 alter table public.transactions
   add constraint transactions_space_consistency_chk
-  check ((space_id is null) = (space_category_id is null));
+  check (space_category_id is null or space_id is not null);
 
 create index if not exists transactions_space_idx
   on public.transactions (space_id, occurred_on)
@@ -96,7 +98,7 @@ alter table public.recurring_rules
   drop constraint if exists recurring_rules_space_consistency_chk;
 alter table public.recurring_rules
   add constraint recurring_rules_space_consistency_chk
-  check ((space_id is null) = (space_category_id is null));
+  check (space_category_id is null or space_id is not null);
 
 create index if not exists recurring_rules_space_idx
   on public.recurring_rules (space_id)

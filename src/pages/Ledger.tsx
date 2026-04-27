@@ -575,12 +575,14 @@ export function Ledger() {
                     </div>
                   </div>
                 ))}
-                <button
-                  onClick={() => setAddForDate(row.date)}
-                  className="text-[11px] text-fg-subtle hover:text-accent transition-colors"
-                >
-                  + add entry
-                </button>
+                {(row.txs.length > 0 || row.pending.length > 0) && (
+                  <button
+                    onClick={() => setAddForDate(row.date)}
+                    className="text-[11px] text-fg-subtle hover:text-accent transition-colors"
+                  >
+                    + add entry
+                  </button>
+                )}
               </div>
 
               <div className="hidden md:block md:text-right stat-num text-sm">

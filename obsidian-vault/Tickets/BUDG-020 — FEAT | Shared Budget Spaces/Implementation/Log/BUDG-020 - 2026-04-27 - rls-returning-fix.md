@@ -51,3 +51,15 @@ Whenever a Supabase table relies on an AFTER INSERT trigger to populate the memb
 1. include the owner directly in the SELECT policy (chosen here), or
 2. use a BEFORE INSERT trigger that populates membership before RETURNING's SELECT check, or
 3. wrap creation in a SECURITY DEFINER RPC.
+
+---
+
+## Follow-up: relaxed `transactions_space_consistency_chk`
+
+After the RLS fix, a second curl failed with `23514` on transactions — the original constraint required `(space_id IS NULL) = (space_category_id IS NULL)`, but generating a shared transaction from a recurring rule whose `space_category_id` was null hit it. That was also inconsistent with personal transactions where `category_id` is freely nullable.
+
+Migration `budg020_relax_space_consistency_chk` weakens both checks (transactions + recurring_rules) to:
+```sql
+check (space_category_id is null or space_id is not null)
+```
+Meaning: a `space_category_id` is only meaningful when the row is shared, but a shared row MAY be uncategorized. Source migration `20260427_budg020_phase1_spaces_schema.sql` updated to match.
