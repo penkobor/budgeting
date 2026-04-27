@@ -7,6 +7,8 @@ import {
 import {
   useCategories, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules, useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
+import { useSpaceCategories } from '@/hooks/spaces'
+import { useUi } from '@/store/ui'
 import { formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
@@ -32,6 +34,8 @@ function startOfWeekMon(d: Date) {
  * user's bank sub-accounts).
  */
 export function WeekLens() {
+  const currentSpaceId = useUi((s) => s.currentSpaceId)
+  const spaceOpts = currentSpaceId ? { spaceId: currentSpaceId } : undefined
   const [weekOffset, setWeekOffset] = useState(0)
   const today = useMemo(() => new Date(), [])
   const start = useMemo(() => addDays(startOfWeekMon(today), weekOffset * 7), [today, weekOffset])
@@ -48,12 +52,17 @@ export function WeekLens() {
 
   const { data: settings } = useSettings()
   const { data: opening } = useMonthlyOpening(monthIso)
-  const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
-  const { data: rules = [] } = useRecurringRules()
+  const { data: txs = [] } = useTransactionsInRange(fromIso, toIso, spaceOpts)
+  const { data: rules = [] } = useRecurringRules(spaceOpts)
   const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
-  const { data: categories = [] } = useCategories()
+  const { data: personalCategories = [] } = useCategories()
+  const { data: spaceCategories = [] } = useSpaceCategories(currentSpaceId)
+  const categories = currentSpaceId ? spaceCategories : personalCategories
   const currency = settings?.currency ?? 'CZK'
-  const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
+  const catMap = useMemo(
+    () => Object.fromEntries(categories.map((c) => [c.id, c])),
+    [categories],
+  )
 
   // Build the canonical list of items in the [start, end] window. Mirrors
   // the Ledger: manual ledger entries + recurring-rule instances (the rule
@@ -63,12 +72,13 @@ export function WeekLens() {
     const out: Array<{ key: string; date: string; amount: number; description: string; categoryId: string | null; recurring: boolean; originalAmount?: number; overridden?: boolean }> = []
     for (const t of txs) {
       if (t.occurred_on >= startIso && t.occurred_on <= endIso) {
+        const catId = currentSpaceId ? t.space_category_id : t.category_id
         out.push({
           key: `tx-${t.id}`,
           date: t.occurred_on,
           amount: Number(t.amount),
-          description: t.description?.trim() || (t.category_id ? catMap[t.category_id]?.name : null) || 'Untitled',
-          categoryId: t.category_id ?? null,
+          description: t.description?.trim() || (catId ? catMap[catId]?.name : null) || 'Untitled',
+          categoryId: catId ?? null,
           recurring: false,
         })
       }
@@ -85,7 +95,7 @@ export function WeekLens() {
           date: dIso,
           amount: eff,
           description: r.name,
-          categoryId: r.category_id ?? null,
+          categoryId: (currentSpaceId ? r.space_category_id : r.category_id) ?? null,
           recurring: true,
           originalAmount: original,
           overridden: Math.abs(eff - original) > 0.005,
@@ -93,7 +103,7 @@ export function WeekLens() {
       }
     }
     return out.sort((a, b) => a.date.localeCompare(b.date))
-  }, [txs, rules, overrides, startIso, endIso, start, end, catMap])
+  }, [txs, rules, overrides, startIso, endIso, start, end, catMap, currentSpaceId])
 
   // Per-day totals (derived from the same items list)
   const days = useMemo(() => {

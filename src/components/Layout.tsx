@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { useState } from 'react'
 import { AddTransactionDialog } from './AddTransactionDialog'
 import { CommandPalette } from './CommandPalette'
+import { ContextSwitcher } from './ContextSwitcher'
 import { useEffect } from 'react'
 
 const nav = [
@@ -51,6 +52,9 @@ export function Layout() {
             <div className="font-semibold leading-tight">Budget</div>
             <div className="text-[11px] text-fg-subtle leading-tight">plan · track · profit</div>
           </div>
+        </div>
+        <div className="px-3 pb-2">
+          <ContextSwitcher variant="sidebar" />
         </div>
         <nav className="px-3 py-2 flex-1">
           {nav.map(({ to, label, icon: Icon, end }) => (
@@ -98,6 +102,11 @@ export function Layout() {
           </div>
         </div>
       </aside>
+
+      {/* Mobile top context bar — sticky pill below the safe-area inset */}
+      <div className="md:hidden fixed top-[max(env(safe-area-inset-top),8px)] right-3 z-30">
+        <ContextSwitcher variant="header" />
+      </div>
 
       {/* Mobile bottom nav — floating Liquid Glass pill, concentric with iPhone screen curve */}
       <nav

@@ -8,15 +8,20 @@ import {
   useUpsertRule,
 } from '@/hooks/queries'
 import { useSettings } from '@/hooks/queries'
+import { useSpace, useSpaceCategories } from '@/hooks/spaces'
+import { useUi } from '@/store/ui'
 import { Modal } from '@/components/ui/Modal'
 import { describeRule, expandRuleInRange } from '@/lib/recurring'
 import { formatMoney, isoDate } from '@/lib/utils'
 import type { RecurringRule } from '@/lib/db.types'
 
 export function RecurringPage() {
-  const { data: rules = [] } = useRecurringRules()
+  const currentSpaceId = useUi((s) => s.currentSpaceId)
+  const spaceOpts = currentSpaceId ? { spaceId: currentSpaceId } : undefined
+  const { data: rules = [] } = useRecurringRules(spaceOpts)
   const { data: settings } = useSettings()
   const { data: upcomingOverrides = [] } = useUpcomingRecurringOverrides()
+  const { data: space } = useSpace(currentSpaceId)
   const upsert = useUpsertRule()
   const del = useDeleteRule()
   const currency = settings?.currency ?? 'CZK'
@@ -65,9 +70,13 @@ export function RecurringPage() {
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="label">Fixed payments</div>
-          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">Recurring rules</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">
+            Recurring rules{currentSpaceId && space ? <span className="text-fg-muted"> · {space.name}</span> : null}
+          </h1>
           <p className="text-xs md:text-sm text-fg-muted mt-1.5 max-w-prose">
-            Templates for payments and income that repeat — rent, subscriptions, salary. They flow into your forecast and the running balance automatically.
+            {currentSpaceId
+              ? `Shared rules for ${space?.name ?? 'this space'} — visible to every member and folded into the joint ledger automatically.`
+              : 'Templates for payments and income that repeat — rent, subscriptions, salary. They flow into your forecast and the running balance automatically.'}
           </p>
         </div>
         <button onClick={() => setAdding(true)} className="btn-primary shrink-0"><Plus className="w-4 h-4" /> Add rule</button>
@@ -154,6 +163,7 @@ export function RecurringPage() {
       {(adding || editing) && (
         <RuleForm
           rule={editing}
+          spaceId={currentSpaceId}
           open={adding || !!editing}
           onClose={() => { setAdding(false); setEditing(null) }}
         />
@@ -162,9 +172,10 @@ export function RecurringPage() {
   )
 }
 
-function RuleForm({ rule, open, onClose }: { rule: RecurringRule | null; open: boolean; onClose: () => void }) {
+function RuleForm({ rule, spaceId, open, onClose }: { rule: RecurringRule | null; spaceId: string | null; open: boolean; onClose: () => void }) {
   const upsert = useUpsertRule()
-  const { data: categories = [] } = useCategories()
+  const { data: personalCategories = [] } = useCategories()
+  const { data: spaceCategories = [] } = useSpaceCategories(spaceId)
 
   const [name, setName] = useState(rule?.name ?? '')
   const [amount, setAmount] = useState(String(rule?.amount ?? ''))
@@ -174,7 +185,9 @@ function RuleForm({ rule, open, onClose }: { rule: RecurringRule | null; open: b
   const [dayOfWeek, setDayOfWeek] = useState(String(rule?.day_of_week ?? 1))
   const [monthOfYear, setMonthOfYear] = useState(String(rule?.month_of_year ?? 1))
   const [intervalDays, setIntervalDays] = useState(String(rule?.interval_days ?? 7))
-  const [categoryId, setCategoryId] = useState(rule?.category_id ?? '')
+  const [categoryId, setCategoryId] = useState(
+    (spaceId ? rule?.space_category_id : rule?.category_id) ?? '',
+  )
   const [startsOn, setStartsOn] = useState(rule?.starts_on ?? isoDate(new Date()))
 
   const submit = async (e: React.FormEvent) => {
@@ -191,14 +204,20 @@ function RuleForm({ rule, open, onClose }: { rule: RecurringRule | null; open: b
       day_of_week: frequency === 'weekly' ? parseInt(dayOfWeek, 10) : null,
       month_of_year: frequency === 'yearly' ? parseInt(monthOfYear, 10) : null,
       interval_days: frequency === 'custom' ? parseInt(intervalDays, 10) : null,
-      category_id: categoryId || null,
+      // CHECK constraint: (space_id IS NULL) = (space_category_id IS NULL).
+      // category_id is mutually exclusive with the space columns.
+      category_id: spaceId ? null : (categoryId || null),
+      space_id: spaceId,
+      space_category_id: spaceId ? (categoryId || null) : null,
       starts_on: startsOn,
       active: rule?.active ?? true,
     })
     onClose()
   }
 
-  const cats = categories.filter((c) => c.kind === kind)
+  const cats = spaceId
+    ? spaceCategories
+    : personalCategories.filter((c) => c.kind === kind)
 
   return (
     <Modal

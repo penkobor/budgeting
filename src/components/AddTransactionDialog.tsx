@@ -19,6 +19,8 @@ import {
   useTransactionsInRange,
   useUpsertTransaction,
 } from '@/hooks/queries'
+import { useSpace, useSpaceCategories, useSpaces } from '@/hooks/spaces'
+import { useUi } from '@/store/ui'
 import { isoDate } from '@/lib/utils'
 import {
   computeProjectedEndBalance,
@@ -56,6 +58,19 @@ export function AddTransactionDialog({
   const { data: settings } = useSettings()
   const upsertTx = useUpsertTransaction()
   const applyRebalanceMutation = useApplyRebalance()
+
+  // ── Space context ──
+  const currentSpaceId = useUi((s) => s.currentSpaceId)
+  const { data: currentSpace } = useSpace(currentSpaceId)
+  const { data: mySpaces = [] } = useSpaces()
+  // Personal mode: "Make this shared" toggle. When ON, the user picks a target
+  // space and the form swaps category select to that space's space_categories.
+  const [makeShared, setMakeShared] = useState(false)
+  const [pickedSpaceId, setPickedSpaceId] = useState<string | null>(null)
+  // Active target space for the form. In Joint context = currentSpaceId.
+  // In Personal context with toggle ON = pickedSpaceId. Else null = personal.
+  const targetSpaceId = currentSpaceId ?? (makeShared ? pickedSpaceId : null)
+  const { data: targetSpaceCategories = [] } = useSpaceCategories(targetSpaceId)
 
   const [date, setDate] = useState(initialDate ?? isoDate(new Date()))
   const [amount, setAmount] = useState(String(initialAmount ?? ''))
@@ -112,7 +127,12 @@ export function AddTransactionDialog({
       setSelected(new Set())
       setMode('even')
       setManualDeltas(new Map())
+      // Default the personal-mode toggle off; pre-select the only space if there
+      // is exactly one (so the picker is a no-op for the common 1-space user).
+      setMakeShared(false)
+      setPickedSpaceId(mySpaces.length === 1 ? mySpaces[0].id : null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialDate, initialAmount, initialDescription, initialCategoryId])
 
   const filteredCats = (categories ?? []).filter((c) => c.kind === kind)
@@ -152,12 +172,18 @@ export function AddTransactionDialog({
     const n = parseFloat(amount.replace(',', '.'))
     if (Number.isNaN(n) || n <= 0) return
     const signed = kind === 'income' ? Math.abs(n) : -Math.abs(n)
+    // CHECK constraint on transactions: (space_id IS NULL) = (space_category_id IS NULL).
+    // Either both null (personal) or both non-null (shared). category_id is the
+    // personal-only column; space_category_id is the shared one.
+    const isShared = targetSpaceId !== null
     const txPayload: TransactionInsert = {
       id: editId,
       occurred_on: date,
       amount: signed,
       description: description || null,
-      category_id: categoryId || null,
+      category_id: isShared ? null : (categoryId || null),
+      space_id: isShared ? targetSpaceId : null,
+      space_category_id: isShared ? (categoryId || null) : null,
       recurring_rule_id: initialRecurringRuleId ?? null,
       planned: true,
       confirmed_at: null,
@@ -167,6 +193,7 @@ export function AddTransactionDialog({
     if (
       kind === 'expense' &&
       !isEdit &&
+      !isShared &&
       goal &&
       date.startsWith(yearMonth)
     ) {
@@ -265,7 +292,9 @@ export function AddTransactionDialog({
     ? 'Rebalance to stay on track'
     : editId
       ? 'Edit transaction'
-      : 'Add transaction'
+      : currentSpaceId && currentSpace
+        ? `Add to ${currentSpace.name}`
+        : 'Add transaction'
   const applying = upsertTx.isPending || applyRebalanceMutation.isPending
 
   return (
@@ -387,13 +416,65 @@ export function AddTransactionDialog({
                 onChange={(e) => setCategoryId(e.target.value)}
               >
                 <option value="">— uncategorised —</option>
-                {filteredCats.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
+                {targetSpaceId
+                  ? targetSpaceCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))
+                  : filteredCats.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
               </select>
             </div>
+
+            {/* Make-this-shared toggle — only in Personal context with at least
+                one space. In Joint context the dialog is already pinned to the
+                current space (no toggle needed). When editing, omit too. */}
+            {!editId && currentSpaceId === null && mySpaces.length > 0 && (
+              <div className="rounded-xl border border-border p-3 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={makeShared}
+                    onChange={(e) => {
+                      setMakeShared(e.target.checked)
+                      // Reset category when switching, since the option lists differ.
+                      setCategoryId('')
+                      if (e.target.checked && !pickedSpaceId && mySpaces[0]) {
+                        setPickedSpaceId(mySpaces[0].id)
+                      }
+                    }}
+                  />
+                  <span className="text-sm font-medium">Make this shared</span>
+                  <span className="text-[11px] text-fg-subtle">
+                    visible to space members
+                  </span>
+                </label>
+                {makeShared && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {mySpaces.map((s) => {
+                      const active = pickedSpaceId === s.id
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => {
+                            setPickedSpaceId(s.id)
+                            setCategoryId('')
+                          }}
+                          className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${active ? 'bg-accent text-accent-fg border-accent' : 'border-border text-fg-muted hover:text-fg hover:border-border-strong'}`}
+                        >
+                          {s.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </motion.form>
         )}
       </AnimatePresence>

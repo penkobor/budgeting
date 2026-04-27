@@ -7,6 +7,8 @@ import { RecurringPage } from '@/pages/Recurring'
 import { CategoriesPage } from '@/pages/Categories'
 import { AssetsPage } from '@/pages/Assets'
 import { SettingsPage } from '@/pages/Settings'
+import { SpaceDetailPage } from '@/pages/SpaceDetail'
+import { InviteAcceptPage } from '@/pages/InviteAccept'
 import { AuthPage } from '@/pages/AuthPage'
 import { useAuth } from '@/hooks/useAuth'
 import { Loader2 } from 'lucide-react'
@@ -37,6 +39,8 @@ function Gate() {
         <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/assets" element={<AssetsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/spaces/:id" element={<SpaceDetailPage />} />
+        <Route path="/invite/:token" element={<InviteAcceptPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

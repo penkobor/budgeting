@@ -5,6 +5,7 @@ import {
   Area, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine, Line, ComposedChart,
 } from 'recharts'
 import { useAssets, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules, useSettings, useTransactionsInRange } from '@/hooks/queries'
+import { useUi } from '@/store/ui'
 import { formatMoney, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
@@ -17,6 +18,7 @@ type Horizon = 1 | 3 | 6 | 12
  * user can ask "what if I get a raise" or "what if I cut spending by 15%".
  */
 export function ForecastLens() {
+  const currentSpaceId = useUi((s) => s.currentSpaceId)
   const [horizon, setHorizon] = useState<Horizon>(6)
   const [salaryDelta, setSalaryDelta] = useState(0)
   const [spendDeltaPct, setSpendDeltaPct] = useState(0)
@@ -103,6 +105,22 @@ export function ForecastLens() {
   const last = series[series.length - 1]
   const opening0 = opening?.opening_balance ?? 0
   const scenarioActive = salaryDelta !== 0 || spendDeltaPct !== 0
+
+  if (currentSpaceId !== null) {
+    return (
+      <div className="space-y-4 md:space-y-6">
+        <header>
+          <div className="label">Forecast</div>
+          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">Where you're heading</h1>
+        </header>
+        <div className="card p-6 text-sm text-fg-muted">
+          Forecast and scenarios are anchored to your personal monthly opening balance,
+          so they're only available in your Personal context. Switch back to Personal to
+          see your projection.
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4 md:space-y-6">

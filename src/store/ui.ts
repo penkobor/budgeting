@@ -6,9 +6,11 @@ type Theme = 'light' | 'dark'
 interface UiState {
   theme: Theme
   paletteOpen: boolean
+  currentSpaceId: string | null
   setTheme: (t: Theme) => void
   toggleTheme: () => void
   setPaletteOpen: (open: boolean) => void
+  setCurrentSpaceId: (id: string | null) => void
 }
 
 export const useUi = create<UiState>()(
@@ -16,12 +18,14 @@ export const useUi = create<UiState>()(
     (set, get) => ({
       theme: 'dark',
       paletteOpen: false,
+      currentSpaceId: null,
       setTheme: (t) => {
         document.documentElement.classList.toggle('dark', t === 'dark')
         set({ theme: t })
       },
       toggleTheme: () => get().setTheme(get().theme === 'dark' ? 'light' : 'dark'),
       setPaletteOpen: (open) => set({ paletteOpen: open }),
+      setCurrentSpaceId: (id) => set({ currentSpaceId: id }),
     }),
     { name: 'budgeting-ui' }
   )

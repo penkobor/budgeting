@@ -11,6 +11,7 @@ import {
   useRecurringOverridesInRange,
   useSettings,
 } from '@/hooks/queries'
+import { useUi } from '@/store/ui'
 import { computeProjectedEndBalance } from '@/lib/projection'
 import { daysInMonth, formatMoney, monthKey } from '@/lib/utils'
 
@@ -21,6 +22,7 @@ import { daysInMonth, formatMoney, monthKey } from '@/lib/utils'
  * goal or review the budget.
  */
 export function GoalAlertRibbon() {
+  const currentSpaceId = useUi((s) => s.currentSpaceId)
   const today = new Date()
   const monthIso = monthKey(today)
   const lastDay = daysInMonth(today.getFullYear(), today.getMonth())
@@ -53,7 +55,7 @@ export function GoalAlertRibbon() {
   }, [monthIso, opening, txs, rules, overrides, today, assetBoost])
 
   const overBy = goal ? Number(goal.amount) - projectedEnd : 0
-  const showRibbon = !!goal && overBy > 0
+  const showRibbon = !!goal && overBy > 0 && currentSpaceId === null
 
   return (
     <AnimatePresence>

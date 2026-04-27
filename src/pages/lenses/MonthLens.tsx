@@ -7,12 +7,16 @@ import { ArrowDownRight, ArrowUpRight, Target } from 'lucide-react'
 import {
   useAssets, useCategories, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules, useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
+import { useSpaceCategories } from '@/hooks/spaces'
+import { useUi } from '@/store/ui'
 import { daysInMonth, formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
 import { MonthlyGoalCard } from '@/components/MonthlyGoalCard'
 
 export function MonthLens() {
+  const currentSpaceId = useUi((s) => s.currentSpaceId)
+  const spaceOpts = currentSpaceId ? { spaceId: currentSpaceId } : undefined
   const today = new Date()
   const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
 
@@ -23,19 +27,23 @@ export function MonthLens() {
 
   const { data: settings } = useSettings()
   const { data: opening } = useMonthlyOpening(monthIso)
-  const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
-  const { data: rules = [] } = useRecurringRules()
+  const { data: txs = [] } = useTransactionsInRange(fromIso, toIso, spaceOpts)
+  const { data: rules = [] } = useRecurringRules(spaceOpts)
   const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
-  const { data: categories = [] } = useCategories()
+  const { data: personalCategories = [] } = useCategories()
+  const { data: spaceCategories = [] } = useSpaceCategories(currentSpaceId)
+  const categories = currentSpaceId ? spaceCategories : personalCategories
   const { data: assets = [] } = useAssets()
   const assetBoost = useMemo(
-    () => assets.reduce((s, a) => s + (a.include_in_balance ? Number(a.value) : 0), 0),
-    [assets],
+    () => (currentSpaceId ? 0 : assets.reduce((s, a) => s + (a.include_in_balance ? Number(a.value) : 0), 0)),
+    [assets, currentSpaceId],
   )
 
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
-  const txLabel = (t: { description: string | null; category_id: string | null }) =>
-    t.description?.trim() || (t.category_id ? catMap[t.category_id]?.name : null) || 'Untitled'
+  const txLabel = (t: { description: string | null; category_id: string | null; space_category_id: string | null }) => {
+    const catId = currentSpaceId ? t.space_category_id : t.category_id
+    return t.description?.trim() || (catId ? catMap[catId]?.name : null) || 'Untitled'
+  }
 
   const currency = settings?.currency ?? 'CZK'
 
@@ -55,12 +63,12 @@ export function MonthLens() {
           date: d,
           amount: eff,
           description: r.name,
-          categoryId: r.category_id,
+          categoryId: currentSpaceId ? r.space_category_id : r.category_id,
         })
       }
     }
     return items
-  }, [rules, overrides, fromIso, toIso])
+  }, [rules, overrides, fromIso, toIso, currentSpaceId])
 
   const missingRuleInstances = useMemo(() => {
     const have = new Set(
@@ -70,7 +78,7 @@ export function MonthLens() {
   }, [ruleInstances, txs])
 
   const series = useMemo(() => {
-    const opening0 = opening?.opening_balance ?? 0
+    const opening0 = currentSpaceId ? 0 : opening?.opening_balance ?? 0
     const byDay: Record<number, number> = {}
     const byDayIncome: Record<number, number> = {}
     const byDayExpense: Record<number, number> = {}
@@ -122,7 +130,7 @@ export function MonthLens() {
         currentBalance: arr[cutoff - 1]?.balance ?? opening0,
       },
     }
-  }, [txs, missingRuleInstances, opening, cursor, lastDay, today])
+  }, [txs, missingRuleInstances, opening, cursor, lastDay, today, currentSpaceId])
 
   const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
@@ -140,11 +148,37 @@ export function MonthLens() {
         </div>
       </header>
 
-      <MonthlyGoalCard
-        yearMonth={`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`}
-        projectedEnd={series.totals.projectedEnd + assetBoost}
-        currency={currency}
-      />
+      {currentSpaceId === null ? (
+        <MonthlyGoalCard
+          yearMonth={`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`}
+          projectedEnd={series.totals.projectedEnd + assetBoost}
+          currency={currency}
+        />
+      ) : (
+        <section className="card p-4 md:p-5">
+          <div className="label mb-1">Joint this month</div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <div className="text-[11px] text-fg-subtle">Planned</div>
+              <div className="stat-num font-semibold mt-0.5 text-negative">
+                −{formatMoney(series.totals.expense, currency)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] text-fg-subtle">Income</div>
+              <div className="stat-num font-semibold mt-0.5 text-positive">
+                +{formatMoney(series.totals.income, currency)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] text-fg-subtle">Net</div>
+              <div className={`stat-num font-semibold mt-0.5 ${series.totals.net >= 0 ? 'text-positive' : 'text-negative'}`}>
+                {formatMoney(series.totals.net, currency)}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <Kpi

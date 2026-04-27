@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Beer, ChevronRight, ListChecks, Pencil, Square, SquareCheckBig, Trash2, X } from 'lucide-react'
 import {
+  useAllSpaceCategoriesForMe,
   useCategories, useDeleteTransaction, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules,
   useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
+import { useSpaceCategories, useSpaceMemberProfiles, useSpaces } from '@/hooks/spaces'
+import { useUi } from '@/store/ui'
 import { daysInMonth, formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
@@ -12,6 +15,8 @@ import { Modal } from '@/components/ui/Modal'
 import type { Transaction } from '@/lib/db.types'
 
 export function Ledger() {
+  const currentSpaceId = useUi((s) => s.currentSpaceId)
+  const setCurrentSpaceId = useUi((s) => s.setCurrentSpaceId)
   const today = new Date()
   const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
   const monthIso = monthKey(cursor)
@@ -19,16 +24,61 @@ export function Ledger() {
   const fromIso = monthIso
   const toIso = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
+  const txOpts = currentSpaceId
+    ? { spaceId: currentSpaceId }
+    : { includeOwnShared: true }
+  const ruleOpts = currentSpaceId ? { spaceId: currentSpaceId } : undefined
+
   const { data: settings } = useSettings()
   const { data: opening } = useMonthlyOpening(monthIso)
-  const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
-  const { data: rules = [] } = useRecurringRules()
+  const { data: txs = [] } = useTransactionsInRange(fromIso, toIso, txOpts)
+  const { data: rules = [] } = useRecurringRules(ruleOpts)
   const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
-  const { data: categories = [] } = useCategories()
+  const { data: personalCategories = [] } = useCategories()
+  const { data: spaceCategoriesJoint = [] } = useSpaceCategories(currentSpaceId)
+  const { data: allSpaceCategoriesForMe = [] } = useAllSpaceCategoriesForMe()
+  const { data: spaces = [] } = useSpaces()
+  const { data: memberProfiles = [] } = useSpaceMemberProfiles(currentSpaceId)
   const deleteTx = useDeleteTransaction()
 
   const currency = settings?.currency ?? 'CZK'
-  const catMap = Object.fromEntries(categories.map((c) => [c.id, c]))
+  // catMap is the active category map for THIS context's headline column
+  // (joint -> space_categories of the current space; personal -> own categories).
+  const catMap = useMemo(
+    () =>
+      Object.fromEntries(
+        (currentSpaceId ? spaceCategoriesJoint : personalCategories).map((c) => [c.id, c]),
+      ),
+    [currentSpaceId, spaceCategoriesJoint, personalCategories],
+  )
+  // For personal-context shared rows we colour by the row's space_category_id
+  // — these come from any space the user is a member of.
+  const allSpaceCatMap = useMemo(
+    () => Object.fromEntries(allSpaceCategoriesForMe.map((c) => [c.id, c])),
+    [allSpaceCategoriesForMe],
+  )
+  const spaceMap = useMemo(
+    () => Object.fromEntries(spaces.map((s) => [s.id, s])),
+    [spaces],
+  )
+  const memberMap = useMemo(
+    () => Object.fromEntries(memberProfiles.map((m) => [m.user_id, m])),
+    [memberProfiles],
+  )
+
+  // Resolve the visible category for a transaction — personal txs use
+  // category_id; shared txs (own-shared in personal context, or any in joint)
+  // use space_category_id. Returns { id, name, color } or null if unset.
+  const txCat = (t: Transaction) => {
+    if (t.space_id) {
+      const c = t.space_category_id ? allSpaceCatMap[t.space_category_id] : undefined
+      return c ? { id: c.id, name: c.name, color: c.color } : null
+    }
+    const c = t.category_id ? catMap[t.category_id] : undefined
+    return c ? { id: c.id, name: c.name, color: c.color } : null
+  }
+  const txDescription = (t: Transaction) =>
+    t.description?.trim() || txCat(t)?.name || 'Untitled'
 
   // Group transactions by day
   const byDay = useMemo(() => {
@@ -61,12 +111,12 @@ export function Ledger() {
           originalAmount: original,
           overridden: Math.abs(eff - original) > 0.005,
           description: r.name,
-          categoryId: r.category_id,
+          categoryId: currentSpaceId ? r.space_category_id : r.category_id,
         })
       }
     }
     return map
-  }, [rules, overrides, txs, fromIso, toIso])
+  }, [rules, overrides, txs, fromIso, toIso, currentSpaceId])
 
   // Build rows with running balance — we no longer track actual-vs-planned;
   // every transaction is a single 'plan' entry. Pending rule instances still
@@ -74,7 +124,7 @@ export function Ledger() {
   // are surfaced in the expanded row as editable templated entries (editing
   // creates a per-day override without touching the rule itself).
   const rows = useMemo(() => {
-    const opening0 = opening?.opening_balance ?? 0
+    const opening0 = currentSpaceId ? 0 : opening?.opening_balance ?? 0
     const arr: Array<{
       day: number;
       date: string;
@@ -113,7 +163,7 @@ export function Ledger() {
       })
     }
     return arr
-  }, [byDay, pendingByDay, opening, cursor, lastDay])
+  }, [byDay, pendingByDay, opening, cursor, lastDay, currentSpaceId])
 
   const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
@@ -183,15 +233,16 @@ export function Ledger() {
         const amt = Number(t.amount)
         if (amt >= 0) income += amt
         else expense += -amt
+        const cat = txCat(t)
         items.push({
           key: `tx-${t.id}`,
           date: r.date,
           amount: amt,
-          description: t.description?.trim() || (t.category_id ? catMap[t.category_id]?.name : null) || 'Untitled',
-          categoryId: t.category_id ?? null,
+          description: txDescription(t),
+          categoryId: cat?.id ?? null,
         })
         if (amt < 0) {
-          const k = t.category_id ?? '__uncat__'
+          const k = cat?.id ?? '__uncat__'
           byCat.set(k, (byCat.get(k) ?? 0) + -amt)
         }
       }
@@ -218,8 +269,14 @@ export function Ledger() {
     const categories = Array.from(byCat.entries())
       .map(([id, amount]) => ({
         id,
-        name: id === '__uncat__' ? 'Uncategorised' : catMap[id]?.name ?? 'Unknown',
-        color: id === '__uncat__' ? null : catMap[id]?.color ?? null,
+        name:
+          id === '__uncat__'
+            ? 'Uncategorised'
+            : catMap[id]?.name ?? allSpaceCatMap[id]?.name ?? 'Unknown',
+        color:
+          id === '__uncat__'
+            ? null
+            : catMap[id]?.color ?? allSpaceCatMap[id]?.color ?? null,
         amount,
       }))
       .sort((a, b) => b.amount - a.amount)
@@ -232,7 +289,7 @@ export function Ledger() {
       net: income - expense,
       categories,
     }
-  }, [rows, selectedDays, catMap])
+  }, [rows, selectedDays, catMap, allSpaceCatMap])
 
   // Auto-scroll today's row into view when on the current month
   const todayRowRef = useRef<HTMLDivElement | null>(null)
@@ -411,13 +468,42 @@ export function Ledger() {
                     + add entry
                   </button>
                 )}
-                {row.txs.map((t) => (
+                {row.txs.map((t) => {
+                  const cat = txCat(t)
+                  const space = t.space_id ? spaceMap[t.space_id] : null
+                  const spaceCat = t.space_id && t.space_category_id ? allSpaceCatMap[t.space_category_id] : null
+                  const author = currentSpaceId && t.user_id ? memberMap[t.user_id] : null
+                  const authorEmail = author?.email ?? null
+                  const authorInitial = (authorEmail ?? '?').slice(0, 1).toUpperCase()
+                  return (
                   <div key={t.id} className="group flex items-center gap-2 text-sm min-w-0">
+                    {currentSpaceId && (
+                      <span
+                        className="shrink-0 w-5 h-5 rounded-full grid place-items-center text-[10px] font-semibold bg-bg-elev text-fg-muted"
+                        title={authorEmail ?? 'Unknown member'}
+                      >
+                        {authorInitial}
+                      </span>
+                    )}
                     <span
                       className="w-1.5 h-1.5 rounded-full shrink-0"
-                      style={{ background: t.category_id ? catMap[t.category_id]?.color ?? '#888' : '#888' }}
+                      style={{ background: cat?.color ?? '#888' }}
                     />
-                    <span className="truncate text-fg">{t.description?.trim() || (t.category_id ? catMap[t.category_id]?.name : null) || 'Untitled'}</span>
+                    <span className="truncate text-fg">{txDescription(t)}</span>
+                    {!currentSpaceId && t.space_id && space && (
+                      <button
+                        type="button"
+                        onClick={() => setCurrentSpaceId(t.space_id)}
+                        className="shrink-0 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full hover:opacity-80 transition-opacity"
+                        style={{
+                          background: (spaceCat?.color ?? 'rgb(var(--accent))') + '22',
+                          color: spaceCat?.color ?? 'rgb(var(--accent))',
+                        }}
+                        title={`${spaceCat?.name ?? 'Shared'} · ${space.name} — click to switch context`}
+                      >
+                        {spaceCat?.name ?? 'Shared'} · {space.name}
+                      </button>
+                    )}
                     <span className={`stat-num text-xs ml-1 ${Number(t.amount) >= 0 ? 'text-positive' : 'text-negative'}`}>
                       {formatMoney(Number(t.amount), currency)}
                     </span>
@@ -426,7 +512,8 @@ export function Ledger() {
                       <button onClick={() => deleteTx.mutate(t.id)} className="btn-ghost !p-1 text-negative" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
                 {row.pending.map((p) => (
                   <div
                     key={`${p.rule_id}-${row.day}`}
