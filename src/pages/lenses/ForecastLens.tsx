@@ -4,9 +4,10 @@ import { Sliders } from 'lucide-react'
 import {
   Area, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine, Line, ComposedChart,
 } from 'recharts'
-import { useMonthlyOpening, useRecurringRules, useSettings, useTransactionsInRange } from '@/hooks/queries'
+import { useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules, useSettings, useTransactionsInRange } from '@/hooks/queries'
 import { formatMoney, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
+import { effectiveOccurrenceAmount } from '@/lib/projection'
 
 type Horizon = 1 | 3 | 6 | 12
 
@@ -36,6 +37,7 @@ export function ForecastLens() {
   const fromIso = horizonStart.toISOString().slice(0, 10)
   const toIso = horizonEnd.toISOString().slice(0, 10)
   const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
+  const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
 
   // Build month-by-month projection
   const series = useMemo(() => {
@@ -71,8 +73,10 @@ export function ForecastLens() {
       for (const r of rules) {
         for (const d of expandRuleInRange(r, monthStart, monthEnd)) {
           if (realised.has(`${r.id}|${d}`)) continue
-          if (r.kind === 'income') income += r.amount
-          else expense += r.amount
+          const eff = effectiveOccurrenceAmount(r, d, overrides)
+          if (eff == null) continue // skipped via override
+          if (eff >= 0) income += eff
+          else expense += -eff
         }
       }
       const baselineDelta = income - expense
@@ -89,7 +93,7 @@ export function ForecastLens() {
       })
     }
     return out
-  }, [rules, opening, today, horizon, salaryDelta, spendDeltaPct, txs])
+  }, [rules, overrides, opening, today, horizon, salaryDelta, spendDeltaPct, txs])
 
   const last = series[series.length - 1]
   const opening0 = opening?.opening_balance ?? 0

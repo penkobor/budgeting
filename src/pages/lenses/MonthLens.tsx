@@ -5,10 +5,11 @@ import {
 } from 'recharts'
 import { ArrowDownRight, ArrowUpRight, Target } from 'lucide-react'
 import {
-  useCategories, useMonthlyOpening, useRecurringRules, useSettings, useTransactionsInRange,
+  useCategories, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules, useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
 import { daysInMonth, formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
+import { effectiveOccurrenceAmount } from '@/lib/projection'
 import { MonthlyGoalCard } from '@/components/MonthlyGoalCard'
 
 export function MonthLens() {
@@ -24,6 +25,7 @@ export function MonthLens() {
   const { data: opening } = useMonthlyOpening(monthIso)
   const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
   const { data: rules = [] } = useRecurringRules()
+  const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
   const { data: categories = [] } = useCategories()
 
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
@@ -39,17 +41,21 @@ export function MonthLens() {
     for (const r of rules) {
       const dates = expandRuleInRange(r, rangeFrom, rangeTo)
       for (const d of dates) {
+        // Apply per-day overrides (skip / trim) so projected end matches
+        // computeProjectedEndBalance after a rebalance is applied.
+        const eff = effectiveOccurrenceAmount(r, d, overrides)
+        if (eff == null) continue // skipped
         items.push({
           rule_id: r.id,
           date: d,
-          amount: r.kind === 'income' ? r.amount : -r.amount,
+          amount: eff,
           description: r.name,
           categoryId: r.category_id,
         })
       }
     }
     return items
-  }, [rules, fromIso, toIso])
+  }, [rules, overrides, fromIso, toIso])
 
   const missingRuleInstances = useMemo(() => {
     const have = new Set(

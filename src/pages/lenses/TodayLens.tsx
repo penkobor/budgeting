@@ -13,12 +13,14 @@ import {
   useCategories,
   useDeleteTransaction,
   useMonthlyOpening,
+  useRecurringOverridesInRange,
   useRecurringRules,
   useSettings,
   useTransactionsInRange,
 } from '@/hooks/queries'
 import { formatMoney, isoDate, monthKey, daysInMonth } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
+import { effectiveOccurrenceAmount } from '@/lib/projection'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
 import type { Transaction } from '@/lib/db.types'
 
@@ -47,6 +49,7 @@ export function TodayLens() {
   const { data: opening } = useMonthlyOpening(monthIso)
   const { data: txs = [] } = useTransactionsInRange(monthIso, toIso)
   const { data: rules = [] } = useRecurringRules()
+  const { data: overrides = [] } = useRecurringOverridesInRange(monthIso, toIso)
   const { data: categories = [] } = useCategories()
   const deleteTx = useDeleteTransaction()
   const currency = settings?.currency ?? 'CZK'
@@ -73,17 +76,19 @@ export function TodayLens() {
     )
     for (const r of rules) {
       if (realisedKeys.has(r.id)) continue
-      for (const _ of expandRuleInRange(r, d, d)) {
+      for (const dIso of expandRuleInRange(r, d, d)) {
+        const eff = effectiveOccurrenceAmount(r, dIso, overrides)
+        if (eff == null) continue
         out.push({
           rule_id: r.id,
-          amount: r.kind === 'income' ? r.amount : -r.amount,
+          amount: eff,
           description: r.name,
           categoryId: r.category_id,
         })
       }
     }
     return out
-  }, [rules, txs, viewedIso])
+  }, [rules, overrides, txs, viewedIso])
 
   const dayExpense = useMemo(() => {
     let sum = 0
@@ -115,12 +120,14 @@ export function TodayLens() {
       for (const r of rules) {
         for (const _ of expandRuleInRange(r, d, d)) {
           if (realisedKeys.has(`${r.id}|${dIso}`)) continue
-          running += r.kind === 'income' ? r.amount : -r.amount
+          const eff = effectiveOccurrenceAmount(r, dIso, overrides)
+          if (eff == null) continue
+          running += eff
         }
       }
     }
     return running
-  }, [txs, rules, opening, monthIso, viewed])
+  }, [txs, rules, overrides, opening, monthIso, viewed])
 
   type Item =
     | {

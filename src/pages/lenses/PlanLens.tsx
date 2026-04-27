@@ -7,12 +7,14 @@ import {
 import {
   useInsertTransactions,
   useMonthlyOpening,
+  useRecurringOverridesInRange,
   useRecurringRules,
   useSettings,
   useTransactionsInRange,
 } from '@/hooks/queries'
 import { formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
+import { effectiveOccurrenceAmount } from '@/lib/projection'
 
 type Draft = {
   id: string
@@ -64,6 +66,7 @@ export function PlanLens() {
   const fromIso = horizonStart.toISOString().slice(0, 10)
   const toIso = horizonEnd.toISOString().slice(0, 10)
   const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
+  const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
 
   // Drafts (local-only)
   const [drafts, setDrafts] = useState<Draft[]>(() => loadDrafts())
@@ -126,12 +129,13 @@ export function PlanLens() {
       txByDay[t.occurred_on] = (txByDay[t.occurred_on] ?? 0) + Number(t.amount)
       if (t.recurring_rule_id) realised.add(`${t.recurring_rule_id}|${t.occurred_on}`)
     }
-    // Recurring instances over horizon, deduped against ledger
+    // Recurring instances over horizon, deduped against ledger, with overrides applied.
     for (const r of rules) {
       for (const d of expandRuleInRange(r, horizonStart, horizonEnd)) {
         if (realised.has(`${r.id}|${d}`)) continue
-        const sign = r.kind === 'income' ? 1 : -1
-        txByDay[d] = (txByDay[d] ?? 0) + sign * r.amount
+        const eff = effectiveOccurrenceAmount(r, d, overrides)
+        if (eff == null) continue // skipped via override
+        txByDay[d] = (txByDay[d] ?? 0) + eff
       }
     }
     const draftByDay: Record<string, number> = {}
@@ -197,7 +201,7 @@ export function PlanLens() {
       totalDrafts: drafts.reduce((s, d) => s + Math.abs(d.amount), 0),
       series,
     }
-  }, [opening, txs, rules, drafts, horizonStart, horizonEnd, today])
+  }, [opening, txs, rules, overrides, drafts, horizonStart, horizonEnd, today])
 
   const impact = projection.endWith - projection.endBaseline // negative if drafts hurt
   const lowestDateLabel = new Date(projection.lowestWithDate).toLocaleDateString(undefined, {

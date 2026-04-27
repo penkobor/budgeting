@@ -1,9 +1,158 @@
 import { describe, expect, it } from 'vitest'
-import { distributeEvenly, type PlannedOccurrence } from './projection'
+import {
+  computeProjectedEndBalance,
+  distributeEvenly,
+  type PlannedOccurrence,
+} from './projection'
+import type { RecurringRule } from './db.types'
 
 function occ(ruleId: string, date: string, amount: number): PlannedOccurrence {
   return { ruleId, ruleName: ruleId, date, amount }
 }
+
+function rule(partial: Partial<RecurringRule> & Pick<RecurringRule, 'id' | 'name' | 'amount' | 'kind' | 'frequency'>): RecurringRule {
+  return {
+    user_id: 'u',
+    starts_on: '2026-01-01',
+    active: true,
+    day_of_month: null,
+    day_of_week: null,
+    month_of_year: null,
+    interval_days: null,
+    category_id: null,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    ...partial,
+  } as RecurringRule
+}
+
+describe('computeProjectedEndBalance', () => {
+  it('counts past-but-unrealised recurring occurrences (no time-based skip)', () => {
+    // Today is 2026-04-27. Rent rule fires every 1st of the month, 25k.
+    // No transaction exists for 2026-04-01. The projection MUST still
+    // include that 25k so it matches the running balance shown in
+    // Ledger / TodayLens / MonthLens (which all include past unrealised
+    // recurring).
+    const rentRule = rule({
+      id: 'rent',
+      name: 'Rent',
+      amount: 25000,
+      kind: 'expense',
+      frequency: 'monthly',
+      day_of_month: 1,
+    })
+    const today = new Date('2026-04-27T12:00:00Z')
+    const projected = computeProjectedEndBalance(
+      '2026-04-01',
+      100000, // opening balance
+      [], // no transactions yet
+      [rentRule],
+      [],
+      today,
+    )
+    // 100k opening - 25k rent = 75k projected end
+    expect(projected).toBe(75000)
+  })
+
+  it('skips occurrences that have a matching realised transaction', () => {
+    const rentRule = rule({
+      id: 'rent',
+      name: 'Rent',
+      amount: 25000,
+      kind: 'expense',
+      frequency: 'monthly',
+      day_of_month: 1,
+    })
+    const today = new Date('2026-04-27T12:00:00Z')
+    const projected = computeProjectedEndBalance(
+      '2026-04-01',
+      100000,
+      [
+        {
+          id: 't1',
+          user_id: 'u',
+          occurred_on: '2026-04-01',
+          amount: -25000,
+          recurring_rule_id: 'rent',
+          description: null,
+          category_id: null,
+          planned: true,
+          confirmed_at: null,
+          created_at: '2026-04-01T00:00:00Z',
+          updated_at: '2026-04-01T00:00:00Z',
+        } as never,
+      ],
+      [rentRule],
+      [],
+      today,
+    )
+    expect(projected).toBe(75000)
+  })
+
+  it('honours skip overrides (skipped: true)', () => {
+    const rentRule = rule({
+      id: 'rent',
+      name: 'Rent',
+      amount: 25000,
+      kind: 'expense',
+      frequency: 'monthly',
+      day_of_month: 1,
+    })
+    const today = new Date('2026-04-27T12:00:00Z')
+    const projected = computeProjectedEndBalance(
+      '2026-04-01',
+      100000,
+      [],
+      [rentRule],
+      [
+        {
+          id: 'o1',
+          user_id: 'u',
+          recurring_rule_id: 'rent',
+          occurrence_date: '2026-04-01',
+          amount_override: null,
+          skipped: true,
+          created_at: '2026-04-01T00:00:00Z',
+        } as never,
+      ],
+      today,
+    )
+    // Rent skipped via override → projected stays at 100k
+    expect(projected).toBe(100000)
+  })
+
+  it('honours amount overrides (amount_override < rule.amount)', () => {
+    const rentRule = rule({
+      id: 'rent',
+      name: 'Rent',
+      amount: 25000,
+      kind: 'expense',
+      frequency: 'monthly',
+      day_of_month: 1,
+    })
+    const today = new Date('2026-04-27T12:00:00Z')
+    const projected = computeProjectedEndBalance(
+      '2026-04-01',
+      100000,
+      [],
+      [rentRule],
+      [
+        {
+          id: 'o1',
+          user_id: 'u',
+          recurring_rule_id: 'rent',
+          occurrence_date: '2026-04-01',
+          amount_override: 20000,
+          skipped: false,
+          created_at: '2026-04-01T00:00:00Z',
+        } as never,
+      ],
+      today,
+    )
+    // 100k opening - 20k (overridden rent) = 80k
+    expect(projected).toBe(80000)
+  })
+})
 
 describe('distributeEvenly', () => {
   it('returns zero deltas when overage is 0', () => {
@@ -49,8 +198,6 @@ describe('distributeEvenly', () => {
   })
 
   it('handles cent rounding without losing or creating money', () => {
-    // 10 cents across 3 items should land at 0.04, 0.03, 0.03 (or any
-    // permutation summing to 0.10). The total covered must be exact.
     const items = [
       occ('a', '2026-05-01', 1),
       occ('b', '2026-05-02', 1),
@@ -77,3 +224,4 @@ describe('distributeEvenly', () => {
     }
   })
 })
+

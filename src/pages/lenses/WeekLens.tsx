@@ -5,10 +5,11 @@ import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import {
-  useCategories, useMonthlyOpening, useRecurringRules, useSettings, useTransactionsInRange,
+  useCategories, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules, useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
 import { formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
+import { effectiveOccurrenceAmount } from '@/lib/projection'
 
 function addDays(d: Date, n: number) {
   const out = new Date(d)
@@ -49,6 +50,7 @@ export function WeekLens() {
   const { data: opening } = useMonthlyOpening(monthIso)
   const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
   const { data: rules = [] } = useRecurringRules()
+  const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
   const { data: categories = [] } = useCategories()
   const currency = settings?.currency ?? 'CZK'
   const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
@@ -75,10 +77,12 @@ export function WeekLens() {
       const dates = expandRuleInRange(r, start, end)
       for (const dIso of dates) {
         if (txs.some((t) => t.recurring_rule_id === r.id && t.occurred_on === dIso)) continue
+        const eff = effectiveOccurrenceAmount(r, dIso, overrides)
+        if (eff == null) continue
         out.push({
           key: `rule-${r.id}-${dIso}`,
           date: dIso,
-          amount: r.kind === 'income' ? r.amount : -r.amount,
+          amount: eff,
           description: r.name,
           categoryId: r.category_id ?? null,
           recurring: true,
@@ -86,7 +90,7 @@ export function WeekLens() {
       }
     }
     return out.sort((a, b) => a.date.localeCompare(b.date))
-  }, [txs, rules, startIso, endIso, start, end, catMap])
+  }, [txs, rules, overrides, startIso, endIso, start, end, catMap])
 
   // Per-day totals (derived from the same items list)
   const days = useMemo(() => {

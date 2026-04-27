@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Beer, ChevronRight, ListChecks, Pencil, Square, SquareCheckBig, Trash2, X } from 'lucide-react'
 import {
-  useCategories, useDeleteTransaction, useMonthlyOpening, useRecurringRules,
+  useCategories, useDeleteTransaction, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules,
   useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
 import { daysInMonth, formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
+import { effectiveOccurrenceAmount } from '@/lib/projection'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
 import { Modal } from '@/components/ui/Modal'
 import type { Transaction } from '@/lib/db.types'
@@ -22,6 +23,7 @@ export function Ledger() {
   const { data: opening } = useMonthlyOpening(monthIso)
   const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
   const { data: rules = [] } = useRecurringRules()
+  const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
   const { data: categories = [] } = useCategories()
   const deleteTx = useDeleteTransaction()
 
@@ -38,7 +40,9 @@ export function Ledger() {
     return map
   }, [txs])
 
-  // Pending rule instances (forecast only, not yet realised)
+  // Pending rule instances (forecast only, not yet realised). Per-day overrides
+  // (skipped / amount_override) are applied so the running balance matches
+  // the projection used by goal trigger and rebalance flow.
   const pendingByDay = useMemo(() => {
     const have = new Set(txs.filter((t) => t.recurring_rule_id).map((t) => `${t.recurring_rule_id}|${t.occurred_on}`))
     const map: Record<number, Array<{ rule_id: string; amount: number; description: string; categoryId: string | null }>> = {}
@@ -47,17 +51,19 @@ export function Ledger() {
     for (const r of rules) {
       for (const d of expandRuleInRange(r, f, tt)) {
         if (have.has(`${r.id}|${d}`)) continue
+        const eff = effectiveOccurrenceAmount(r, d, overrides)
+        if (eff == null) continue // skipped via override
         const day = parseInt(d.slice(8, 10), 10)
         ;(map[day] ??= []).push({
           rule_id: r.id,
-          amount: r.kind === 'income' ? r.amount : -r.amount,
+          amount: eff,
           description: r.name,
           categoryId: r.category_id,
         })
       }
     }
     return map
-  }, [rules, txs, fromIso, toIso])
+  }, [rules, overrides, txs, fromIso, toIso])
 
   // Build rows with running balance — we no longer track actual-vs-planned;
   // every transaction is a single 'plan' entry. Pending rule instances still

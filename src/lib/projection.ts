@@ -41,7 +41,12 @@ export function computeProjectedEndBalance(
   transactions: Transaction[],
   rules: RecurringRule[],
   overrides: RecurringOverride[],
-  today: Date = new Date()
+  // `today` is currently unused — past-but-unrealised recurring occurrences
+  // are intentionally treated as "still going to land" to match Ledger /
+  // MonthLens running balance. The parameter is kept on the signature for
+  // back-compat with call sites that pass an explicit clock.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _today: Date = new Date()
 ): number {
   const monthStart = new Date(monthIso + 'T00:00:00')
   const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0)
@@ -62,10 +67,15 @@ export function computeProjectedEndBalance(
     }
   }
 
-  // 2. add unrealised recurring occurrences for the rest of the month
-  const projectFrom = today > monthStart ? today : monthStart
+  // 2. add unrealised recurring occurrences for the WHOLE month, not just
+  //    `today → monthEnd`. Past-but-unrealised occurrences are how the rest
+  //    of the app (Ledger running balance, MonthLens series, TodayLens
+  //    balance) treats recurring rules: if the rule fired on day N and no
+  //    matching transaction exists, we still assume it will land. Anything
+  //    else creates a mismatch between the goal trigger and the displayed
+  //    projected end-of-month balance.
   for (const rule of rules) {
-    const dates = expandRuleInRange(rule, projectFrom, monthEnd)
+    const dates = expandRuleInRange(rule, monthStart, monthEnd)
     for (const d of dates) {
       if (realised.has(`${rule.id}|${d}`)) continue
       const amt = effectiveOccurrenceAmount(rule, d, overrides)
