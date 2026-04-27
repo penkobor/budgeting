@@ -54,7 +54,19 @@ export function useCreateSpace() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (input: { name: string; currency?: string }) => {
-      const payload: SpaceInsert = { name: input.name, currency: input.currency ?? 'EUR' }
+      // RLS policy on `spaces` INSERT requires `owner_user_id = auth.uid()`.
+      // The column has `default auth.uid()`, but we set it explicitly from the
+      // client to avoid PostgREST edge cases where the default is not applied
+      // before the WITH CHECK evaluation in production.
+      const { data: userData, error: userErr } = await supabase.auth.getUser()
+      if (userErr) throw userErr
+      const uid = userData.user?.id
+      if (!uid) throw new Error('not authenticated')
+      const payload: SpaceInsert = {
+        name: input.name,
+        currency: input.currency ?? 'EUR',
+        owner_user_id: uid,
+      }
       const { data, error } = await supabase
         .from('spaces')
         .insert(payload)
@@ -289,12 +301,20 @@ export function useGenerateInvite() {
     mutationFn: async (input: { spaceId: string; ttlDays?: number }) => {
       const ttl = input.ttlDays ?? DEFAULT_INVITE_TTL_DAYS
       const expiresAt = new Date(Date.now() + ttl * 24 * 60 * 60 * 1000).toISOString()
+      // RLS WITH CHECK on space_invites requires `created_by = auth.uid()`.
+      // We set it explicitly (the column default is `auth.uid()`, but mirror
+      // the same defensive pattern as `useCreateSpace`).
+      const { data: userData, error: userErr } = await supabase.auth.getUser()
+      if (userErr) throw userErr
+      const uid = userData.user?.id
+      if (!uid) throw new Error('not authenticated')
       const { data, error } = await supabase
         .from('space_invites')
         .insert({
           space_id: input.spaceId,
           token: generateInviteToken(),
           expires_at: expiresAt,
+          created_by: uid,
         })
         .select()
         .single()
