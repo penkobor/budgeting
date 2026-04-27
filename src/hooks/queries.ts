@@ -286,6 +286,25 @@ export function useRecurringOverridesInRange(fromIso: string, toIso: string) {
   })
 }
 
+/**
+ * All recurring overrides for upcoming occurrences (>= today).
+ * Used on Recurring page to show "trimmed" badges per rule.
+ */
+export function useUpcomingRecurringOverrides() {
+  const todayIso = new Date().toISOString().slice(0, 10)
+  return useQuery({
+    queryKey: ['recurring_overrides', 'upcoming', todayIso],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('recurring_overrides')
+        .select('*')
+        .gte('occurrence_date', todayIso)
+      if (error) throw error
+      return (data ?? []) as RecurringOverride[]
+    },
+  })
+}
+
 export function useUpsertRecurringOverrides() {
   const qc = useQueryClient()
   return useMutation({

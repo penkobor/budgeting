@@ -5,6 +5,7 @@ import { WeekLens } from './lenses/WeekLens'
 import { MonthLens } from './lenses/MonthLens'
 import { ForecastLens } from './lenses/ForecastLens'
 import { PlanLens } from './lenses/PlanLens'
+import { GoalAlertRibbon } from '@/components/GoalAlertRibbon'
 
 const LENSES = [
   { id: 'today', label: 'Today', icon: Sun },
@@ -52,6 +53,8 @@ export function Dashboard() {
           })}
         </div>
       </div>
+
+      {lens !== 'month' && <GoalAlertRibbon />}
 
       {lens === 'today' && <TodayLens />}
       {lens === 'week' && <WeekLens />}

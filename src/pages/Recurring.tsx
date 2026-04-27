@@ -1,6 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
-import { useCategories, useDeleteRule, useRecurringRules, useUpsertRule } from '@/hooks/queries'
+import {
+  useCategories,
+  useDeleteRule,
+  useRecurringRules,
+  useUpcomingRecurringOverrides,
+  useUpsertRule,
+} from '@/hooks/queries'
 import { useSettings } from '@/hooks/queries'
 import { Modal } from '@/components/ui/Modal'
 import { describeRule, expandRuleInRange } from '@/lib/recurring'
@@ -10,9 +16,21 @@ import type { RecurringRule } from '@/lib/db.types'
 export function RecurringPage() {
   const { data: rules = [] } = useRecurringRules()
   const { data: settings } = useSettings()
+  const { data: upcomingOverrides = [] } = useUpcomingRecurringOverrides()
   const upsert = useUpsertRule()
   const del = useDeleteRule()
   const currency = settings?.currency ?? 'CZK'
+
+  // Group upcoming overrides by rule id for the trim-count badge.
+  const overridesByRule = useMemo(() => {
+    const map: Record<string, { trimmed: number; skipped: number }> = {}
+    for (const o of upcomingOverrides) {
+      const slot = (map[o.recurring_rule_id] ??= { trimmed: 0, skipped: 0 })
+      if (o.skipped) slot.skipped += 1
+      else slot.trimmed += 1
+    }
+    return map
+  }, [upcomingOverrides])
 
   const [editing, setEditing] = useState<RecurringRule | null>(null)
   const [adding, setAdding] = useState(false)
@@ -63,6 +81,7 @@ export function RecurringPage() {
         )}
         {rules.map((r) => {
           const monthly = monthlyByRule[r.id]
+          const trimInfo = overridesByRule[r.id]
           return (
           <div key={r.id} className="flex items-center gap-3 p-4">
             <button
@@ -73,7 +92,21 @@ export function RecurringPage() {
               {r.active ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
             </button>
             <div className="min-w-0 flex-1">
-              <div className="font-medium truncate">{r.name}</div>
+              <div className="font-medium truncate flex items-center gap-2">
+                <span className="truncate">{r.name}</span>
+                {trimInfo && (trimInfo.trimmed + trimInfo.skipped) > 0 && (
+                  <span
+                    className="shrink-0 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent"
+                    title={`${trimInfo.trimmed} trimmed, ${trimInfo.skipped} skipped (upcoming overrides from rebalance)`}
+                  >
+                    {trimInfo.skipped > 0 && trimInfo.trimmed === 0
+                      ? `${trimInfo.skipped}× skipped`
+                      : trimInfo.trimmed > 0 && trimInfo.skipped === 0
+                        ? `${trimInfo.trimmed}× trimmed`
+                        : `${trimInfo.trimmed + trimInfo.skipped}× adjusted`}
+                  </span>
+                )}
+              </div>
               <div className="text-xs text-fg-subtle">
                 {describeRule(r)}
                 {monthly && monthly.count > 1 && (

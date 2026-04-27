@@ -9,6 +9,7 @@ import { SettingsPage } from '@/pages/Settings'
 import { AuthPage } from '@/pages/AuthPage'
 import { useAuth } from '@/hooks/useAuth'
 import { Loader2 } from 'lucide-react'
+import { ToastHost } from '@/components/ui/Toast'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +47,7 @@ function App() {
       <HashRouter>
         <Gate />
       </HashRouter>
+      <ToastHost />
     </QueryClientProvider>
   )
 }

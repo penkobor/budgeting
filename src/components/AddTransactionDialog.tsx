@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Modal } from './ui/Modal'
+import { pushToast } from './ui/Toast'
 import {
   RebalanceStep,
   RebalanceStepFooter,
@@ -231,6 +232,12 @@ export function AddTransactionDialog({
       overrides: overrideRows,
       tx_updates: txUpdates,
     })
+    const trimmed = selections.filter((s) => s.delta > 0).length
+    pushToast(
+      trimmed > 0
+        ? `Saved · trimmed ${trimmed} planned ${trimmed === 1 ? 'expense' : 'expenses'} to keep your goal`
+        : 'Saved with rebalance',
+    )
     onOpenChange(false)
   }
 
