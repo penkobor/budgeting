@@ -103,14 +103,6 @@ export function Layout() {
         </div>
       </aside>
 
-      {/* Mobile top context bar — sticky pill below the safe-area inset.
-          z-40 so it floats above page-level `sticky z-30` strips (Dashboard
-          lens pills, Ledger toolbar) instead of fighting them in the same
-          stacking plane. */}
-      <div className="md:hidden fixed top-[max(env(safe-area-inset-top),8px)] right-3 z-40">
-        <ContextSwitcher variant="header" />
-      </div>
-
       {/* Mobile bottom nav — floating Liquid Glass pill, concentric with iPhone screen curve */}
       <nav
         className="glass md:hidden fixed bottom-0 inset-x-4 z-30 rounded-[44px] mb-[calc(max(env(safe-area-inset-bottom),6px)-4px)] overflow-hidden"
@@ -144,11 +136,13 @@ export function Layout() {
         <Plus className="w-6 h-6" />
       </button>
 
-      {/* Main — mobile top padding makes room for the floating ContextSwitcher
-          pill (top-right of the safe-area inset, ~2.75rem tall). Without this,
-          page titles and sticky pill rows on Dashboard/Ledger would overlap
-          the pill at the top of the viewport. */}
-      <main className="flex-1 min-w-0 pt-[calc(max(env(safe-area-inset-top),12px)+2.5rem)] pb-[calc(5rem+env(safe-area-inset-bottom))] md:pt-0 md:pb-0">
+      {/* Main — page content. On mobile we mount an inline ContextSwitcher
+          at the very top so it scrolls with content (Concept A) instead of
+          floating fixed and fighting page-level sticky strips. */}
+      <main className="flex-1 min-w-0 pt-[max(env(safe-area-inset-top),12px)] pb-[calc(5rem+env(safe-area-inset-bottom))] md:pt-0 md:pb-0">
+        <div className="md:hidden px-4 pt-1 pb-2 flex justify-end">
+          <ContextSwitcher variant="header" />
+        </div>
         <Outlet />
       </main>
 
