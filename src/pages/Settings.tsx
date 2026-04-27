@@ -6,6 +6,7 @@ import { monthKey } from '@/lib/utils'
 import { seedAprilFromNumbers } from '@/lib/seed'
 import { supabase } from '@/lib/supabase'
 import { useQueryClient } from '@tanstack/react-query'
+import { APP_VERSION, BUILD_SHA, BUILD_TIME, formatBuildTime } from '@/lib/version'
 
 export function SettingsPage() {
   const { data: settings } = useSettings()
@@ -129,6 +130,18 @@ export function SettingsPage() {
         </button>
         {seedMsg && <div className="text-sm text-positive bg-positive/10 border border-positive/20 rounded-xl px-3 py-2">{seedMsg}</div>}
         {seedErr && <div className="text-sm text-negative bg-negative/10 border border-negative/20 rounded-xl px-3 py-2">{seedErr}</div>}
+      </section>
+
+      <section className="card p-4 md:p-5 space-y-1.5">
+        <h2 className="font-semibold">Build</h2>
+        <p className="text-xs text-fg-subtle stat-num leading-relaxed">
+          v{APP_VERSION} · <span title="Git commit short SHA">{BUILD_SHA}</span>
+          <br />
+          <span className="text-fg-muted" title={BUILD_TIME}>built {formatBuildTime()}</span>
+        </p>
+        <p className="text-[11px] text-fg-muted">
+          Use this to confirm a fresh deploy landed — the SHA changes on every commit.
+        </p>
       </section>
     </div>
   )
