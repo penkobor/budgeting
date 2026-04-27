@@ -7,6 +7,7 @@ import {
   type RebalanceSelection,
 } from './RebalanceStep'
 import {
+  useApplyRebalance,
   useCategories,
   useMonthlyGoal,
   useMonthlyOpening,
@@ -14,7 +15,6 @@ import {
   useRecurringRules,
   useSettings,
   useTransactionsInRange,
-  useUpsertRecurringOverrides,
   useUpsertTransaction,
 } from '@/hooks/queries'
 import { isoDate } from '@/lib/utils'
@@ -53,7 +53,7 @@ export function AddTransactionDialog({
   const { data: categories } = useCategories()
   const { data: settings } = useSettings()
   const upsertTx = useUpsertTransaction()
-  const upsertOverrides = useUpsertRecurringOverrides()
+  const applyRebalanceMutation = useApplyRebalance()
 
   const [date, setDate] = useState(initialDate ?? isoDate(new Date()))
   const [amount, setAmount] = useState(String(initialAmount ?? ''))
@@ -214,11 +214,9 @@ export function AddTransactionDialog({
       amount_override: s.newAmount > 0 ? s.newAmount : null,
       skipped: s.newAmount === 0,
     }))
-    // Sequential mutations for now; atomic RPC is Phase 4.
-    if (overrideRows.length > 0) {
-      await upsertOverrides.mutateAsync(overrideRows)
-    }
-    await upsertTx.mutateAsync(pendingTx)
+    // Atomic apply via Postgres RPC (Phase 4): tx insert + override upserts
+    // happen in a single transaction. RLS still enforced (SECURITY INVOKER).
+    await applyRebalanceMutation.mutateAsync({ tx: pendingTx, overrides: overrideRows })
     onOpenChange(false)
   }
 
@@ -239,7 +237,7 @@ export function AddTransactionDialog({
     : editId
       ? 'Edit transaction'
       : 'Add transaction'
-  const applying = upsertTx.isPending || upsertOverrides.isPending
+  const applying = upsertTx.isPending || applyRebalanceMutation.isPending
 
   return (
     <Modal

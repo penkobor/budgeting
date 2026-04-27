@@ -182,7 +182,12 @@ export type Database = {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      apply_rebalance: {
+        Args: { tx: Json; overrides: Json }
+        Returns: Database['public']['Tables']['transactions']['Row']
+      }
+    }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }

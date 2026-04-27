@@ -11,7 +11,7 @@ Personal vault tracking work on the **budgeting_app** project (https://github.co
 
 - [[BUDG-001]] — INIT | Bootstrap Personal Budgeting PWA
 - [[BUDG-002]] — POLISH | Mobile UX refinements
-- [[BUDG-012]] — FEAT | Monthly Goal and Rebalance Flow *(Phase 3 done; atomic RPC + polish pending)*
+- [[BUDG-012]] — FEAT | Monthly Goal and Rebalance Flow *(Phase 4 done; polish pending)*
 
 ## Other
 

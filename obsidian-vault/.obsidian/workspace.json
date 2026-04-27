@@ -23,12 +23,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Tickets/BUDG-001 — INIT | Bootstrap Personal Budgeting PWA/Prompts/feedback 3.md",
+                "file": "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/Implementation/BUDG-012 - Plan.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "feedback 3"
+              "title": "BUDG-012 - Plan"
             }
           }
         ],
@@ -89,7 +89,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 222.50260543823242
+    "width": 767.5
   },
   "right": {
     "id": "cc4330cdd0c4f3de",
@@ -182,6 +182,8 @@
   },
   "active": "dfbbbfc62232319f",
   "lastOpenFiles": [
+    "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/Implementation/Log/BUDG-012 - 2026-04-27 - phase4-atomic-rpc.md",
+    "Tickets/BUDG-001 — INIT | Bootstrap Personal Budgeting PWA/Prompts/feedback 3.md",
     "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/Implementation/Log/BUDG-012 - 2026-04-27 - phase3-rebalance-step.md",
     "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/Implementation/Log/BUDG-012 - 2026-04-27 - phase2-goal-hero-card.md",
     "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/Implementation/Log/BUDG-012 - 2026-04-27 - phase1-data-and-projection.md",
@@ -214,8 +216,6 @@
     "Tickets/BUDG-009 — UX | Liquid Glass refinements/Implementation/BUDG-009 - Plan.md",
     "Tickets/BUDG-008 — UX | iOS motion polish/Implementation/BUDG-008 - Plan.md",
     "Tickets/BUDG-008 — UX | iOS motion polish/BUDG-008.md",
-    "Tickets/BUDG-007 — INFRA | Cold-restart resilience/Implementation/BUDG-007 - Plan.md",
-    "Tickets/BUDG-007 — INFRA | Cold-restart resilience/BUDG-007.md",
     "Tickets/BUDG-010 — FEAT | iOS push and app badge/Implementation/Log",
     "Tickets/BUDG-010 — FEAT | iOS push and app badge/QA",
     "Pasted image 20260426235354.png",

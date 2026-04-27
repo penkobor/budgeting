@@ -1,6 +1,6 @@
 # BUDG-012 — FEAT | Monthly Goal + Rebalance Flow
 
-**Status:** Phase 3 done (data + projection + Goal card + rebalance flow); Phase 4 (atomic RPC) + Phase 5 (polish) pending
+**Status:** Phase 4 done (atomic apply via RPC); Phase 5 (polish) pending
 **Branch:** `feature/budg-012-monthly-goal-rebalance`
 **Depends on:** existing recurring engine ([[BUDG-001]]), Forecast lens ([[BUDG-003]])
 
@@ -53,9 +53,9 @@ Triggered only when adding **expense** transactions. Income/transfers save norma
 - [x] Sticky footer: Apply (disabled until covered) | Save anyway (with confirm) | ← Back.
 
 ### ST5 — Atomic apply mutation
-- [x] Sequential client-side mutation (overrides upsert → tx upsert).
-- [ ] Single Supabase RPC or batched edge function. *(Phase 4)*
-- [ ] On failure: rollback in client. *(Phase 4)*
+- [x] Sequential client-side mutation — superseded by RPC.
+- [x] Single Supabase RPC `apply_rebalance(tx, overrides)` — SECURITY INVOKER, applied via MCP.
+- [ ] On failure: client-side rollback. *(Not needed for the RPC path — nothing mutated locally before the call. Optimistic UI deferred to Phase 5.)*
 - [x] Success path closes the sheet; toast left to Phase 5.
 
 ### ST6 — Visibility & polish
@@ -68,6 +68,7 @@ Triggered only when adding **expense** transactions. Income/transfers save norma
 - [ ] [[BUDG-012 - ADR-002 - Recurring overrides table over template mutation]]
 
 ## Implementation Log
+- [[BUDG-012 - 2026-04-27 - phase4-atomic-rpc]] — apply_rebalance RPC + useApplyRebalance hook
 - [[BUDG-012 - 2026-04-27 - phase3-rebalance-step]] — step machine + RebalanceStep + distributeEvenly
 - [[BUDG-012 - 2026-04-27 - phase2-goal-hero-card]] — MonthlyGoalCard + MonthLens integration
 - [[BUDG-012 - 2026-04-27 - phase1-data-and-projection]] — migrations, types, hooks, projection helper

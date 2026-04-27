@@ -316,6 +316,32 @@ export function useDeleteRecurringOverride() {
   })
 }
 
+// ---------- Atomic apply_rebalance RPC (BUDG-012 Phase 4) ----------
+export interface ApplyRebalancePayload {
+  tx: TransactionInsert
+  overrides: RecurringOverrideInsert[]
+}
+
+export function useApplyRebalance() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ tx, overrides }: ApplyRebalancePayload) => {
+      const { data, error } = await supabase.rpc('apply_rebalance', {
+        // Cast through unknown — the generated typing wants Json but our
+        // payload shape is structurally compatible.
+        tx: tx as unknown as never,
+        overrides: overrides as unknown as never,
+      })
+      if (error) throw error
+      return data as Transaction
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['recurring_overrides'] })
+    },
+  })
+}
+
 // ---------- Settings ----------
 export function useSettings() {
   return useQuery({
