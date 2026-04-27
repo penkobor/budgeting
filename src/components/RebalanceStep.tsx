@@ -4,10 +4,12 @@ import { occKey, type DistributionResult, type PlannedOccurrence } from '@/lib/p
 import { formatMoney } from '@/lib/utils'
 
 export interface RebalanceSelection {
-  ruleId: string
+  ruleId: string // for one-off: 'tx:<txId>'
   occurrenceDate: string
-  newAmount: number // post-trim amount; 0 → skip
+  newAmount: number // post-trim amount; 0 → skip / delete
   delta: number // positive: amount subtracted from original
+  isOneOff?: boolean
+  transactionId?: string
 }
 
 interface RebalanceStepProps {

@@ -79,27 +79,40 @@ export function computeProjectedEndBalance(
 
 /**
  * Future planned EXPENSES in the given month that are candidates for trimming
- * to absorb a goal overage. Returns occurrences (rule + date + effective amount),
- * sorted by date ascending.
+ * to absorb a goal overage. Returns:
+ *   - recurring rule occurrences from today through end-of-month (with overrides applied)
+ *   - one-off transactions dated > today within the month with a negative amount
+ *     (i.e. future-dated expenses that are not linked to a recurring rule)
+ *
+ * Sorted by date ascending.
  */
 export type PlannedOccurrence = {
-  ruleId: string
+  ruleId: string // for one-off rows this is `tx:<transactionId>`
   ruleName: string
   date: string
   amount: number // positive expense amount
+  /** True for one-off transactions; false for recurring rule occurrences. */
+  isOneOff?: boolean
+  /** For one-off rows, the underlying transaction id. */
+  transactionId?: string
 }
 
 export function listFuturePlannedExpenses(
   monthIso: string,
   rules: RecurringRule[],
   overrides: RecurringOverride[],
+  transactions: Transaction[] = [],
   today: Date = new Date()
 ): PlannedOccurrence[] {
   const monthStart = new Date(monthIso + 'T00:00:00')
   const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0)
   const from = today > monthStart ? today : monthStart
+  const fromIso = from.toISOString().slice(0, 10)
+  const monthEndIso = monthEnd.toISOString().slice(0, 10)
 
   const out: PlannedOccurrence[] = []
+
+  // 1. Recurring rule occurrences in the future window of this month.
   for (const rule of rules) {
     if (rule.kind !== 'expense') continue
     for (const d of expandRuleInRange(rule, from, monthEnd)) {
@@ -112,7 +125,26 @@ export function listFuturePlannedExpenses(
       out.push({ ruleId: rule.id, ruleName: rule.name, date: d, amount: amt })
     }
   }
-  out.sort((a, b) => a.date.localeCompare(b.date))
+
+  // 2. One-off transactions dated in the future window with negative amount.
+  //    These are not linked to a recurring rule. Treat them as candidates too.
+  for (const t of transactions) {
+    if (t.recurring_rule_id) continue // handled via overrides
+    if (t.occurred_on < fromIso || t.occurred_on > monthEndIso) continue
+    const amt = Number(t.amount)
+    if (amt >= 0) continue // income or zero
+    const positive = -amt
+    out.push({
+      ruleId: `tx:${t.id}`,
+      ruleName: t.description?.trim() || 'Planned expense',
+      date: t.occurred_on,
+      amount: positive,
+      isOneOff: true,
+      transactionId: t.id,
+    })
+  }
+
+  out.sort((a, b) => a.date.localeCompare(b.date) || a.ruleName.localeCompare(b.ruleName))
   return out
 }
 

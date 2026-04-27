@@ -161,23 +161,23 @@ export function AddTransactionDialog({
       kind === 'expense' &&
       !isEdit &&
       goal &&
-      opening &&
       date.startsWith(yearMonth)
     ) {
       const txsWithNew = [
         ...monthTxs,
         { ...txPayload, id: '__pending__' } as never,
       ]
+      const openingBalance = opening?.opening_balance ?? 0
       const projected = computeProjectedEndBalance(
         monthIso,
-        opening.opening_balance,
+        openingBalance,
         txsWithNew,
         rules,
         overrides,
       )
       const goalAmount = Number(goal.amount)
       if (projected < goalAmount) {
-        const cands = listFuturePlannedExpenses(monthIso, rules, overrides)
+        const cands = listFuturePlannedExpenses(monthIso, rules, overrides, monthTxs)
         setOverage(Math.round((goalAmount - projected) * 100) / 100)
         setCandidates(cands)
         setPendingTx(txPayload)
@@ -200,7 +200,14 @@ export function AddTransactionDialog({
       const c = candidates.find((x) => occKey(x.ruleId, x.date) === k)
       if (!c) return
       const newAmount = Math.max(0, Math.round((c.amount - delta) * 100) / 100)
-      out.push({ ruleId: c.ruleId, occurrenceDate: c.date, newAmount, delta })
+      out.push({
+        ruleId: c.ruleId,
+        occurrenceDate: c.date,
+        newAmount,
+        delta,
+        isOneOff: c.isOneOff,
+        transactionId: c.transactionId,
+      })
     })
     return out
   }
@@ -208,15 +215,22 @@ export function AddTransactionDialog({
   const applyRebalance = async () => {
     if (!pendingTx) return
     const selections = buildSelections()
-    const overrideRows: RecurringOverrideInsert[] = selections.map((s) => ({
-      recurring_rule_id: s.ruleId,
-      occurrence_date: s.occurrenceDate,
-      amount_override: s.newAmount > 0 ? s.newAmount : null,
-      skipped: s.newAmount === 0,
-    }))
-    // Atomic apply via Postgres RPC (Phase 4): tx insert + override upserts
-    // happen in a single transaction. RLS still enforced (SECURITY INVOKER).
-    await applyRebalanceMutation.mutateAsync({ tx: pendingTx, overrides: overrideRows })
+    const overrideRows: RecurringOverrideInsert[] = selections
+      .filter((s) => !s.isOneOff)
+      .map((s) => ({
+        recurring_rule_id: s.ruleId,
+        occurrence_date: s.occurrenceDate,
+        amount_override: s.newAmount > 0 ? s.newAmount : null,
+        skipped: s.newAmount === 0,
+      }))
+    const txUpdates = selections
+      .filter((s) => s.isOneOff && s.transactionId)
+      .map((s) => ({ id: s.transactionId as string, new_amount: s.newAmount }))
+    await applyRebalanceMutation.mutateAsync({
+      tx: pendingTx,
+      overrides: overrideRows,
+      tx_updates: txUpdates,
+    })
     onOpenChange(false)
   }
 

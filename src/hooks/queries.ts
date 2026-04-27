@@ -317,20 +317,25 @@ export function useDeleteRecurringOverride() {
 }
 
 // ---------- Atomic apply_rebalance RPC (BUDG-012 Phase 4) ----------
+export interface TxUpdate {
+  id: string
+  new_amount: number // 0 = delete the planned tx; >0 = set tx.amount = -new_amount
+}
+
 export interface ApplyRebalancePayload {
   tx: TransactionInsert
   overrides: RecurringOverrideInsert[]
+  tx_updates?: TxUpdate[]
 }
 
 export function useApplyRebalance() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ tx, overrides }: ApplyRebalancePayload) => {
+    mutationFn: async ({ tx, overrides, tx_updates = [] }: ApplyRebalancePayload) => {
       const { data, error } = await supabase.rpc('apply_rebalance', {
-        // Cast through unknown — the generated typing wants Json but our
-        // payload shape is structurally compatible.
         tx: tx as unknown as never,
         overrides: overrides as unknown as never,
+        tx_updates: tx_updates as unknown as never,
       })
       if (error) throw error
       return data as Transaction

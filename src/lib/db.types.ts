@@ -184,7 +184,7 @@ export type Database = {
     Views: Record<string, never>
     Functions: {
       apply_rebalance: {
-        Args: { tx: Json; overrides: Json }
+        Args: { tx: Json; overrides: Json; tx_updates?: Json }
         Returns: Database['public']['Tables']['transactions']['Row']
       }
     }

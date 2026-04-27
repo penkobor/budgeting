@@ -68,6 +68,7 @@ Triggered only when adding **expense** transactions. Income/transfers save norma
 - [ ] [[BUDG-012 - ADR-002 - Recurring overrides table over template mutation]]
 
 ## Implementation Log
+- [[BUDG-012 - 2026-04-27 - bugfix-opening-and-oneoff-candidates]] — fix rebalance trigger when no opening anchor + include one-off planned expenses in candidates; RPC v2 with tx_updates
 - [[BUDG-012 - 2026-04-27 - phase4-atomic-rpc]] — apply_rebalance RPC + useApplyRebalance hook
 - [[BUDG-012 - 2026-04-27 - phase3-rebalance-step]] — step machine + RebalanceStep + distributeEvenly
 - [[BUDG-012 - 2026-04-27 - phase2-goal-hero-card]] — MonthlyGoalCard + MonthLens integration
