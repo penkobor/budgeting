@@ -136,6 +136,17 @@ export function listFuturePlannedExpenses(
 
   const out: PlannedOccurrence[] = []
 
+  // Index materialised transactions by (rule_id|date) so we can detect when a
+  // rule occurrence has already been written into `transactions` and treat
+  // that occurrence as a one-off (rebalance must update the tx, not write a
+  // dead override).
+  const txByRuleDate = new Map<string, Transaction>()
+  for (const t of transactions) {
+    if (t.recurring_rule_id) {
+      txByRuleDate.set(`${t.recurring_rule_id}|${t.occurred_on}`, t)
+    }
+  }
+
   // 1. Recurring rule occurrences in the future window of this month.
   for (const rule of rules) {
     if (rule.kind !== 'expense') continue
@@ -144,6 +155,25 @@ export function listFuturePlannedExpenses(
         (x) => x.recurring_rule_id === rule.id && x.occurrence_date === d
       )
       if (o?.skipped) continue
+
+      const materialised = txByRuleDate.get(`${rule.id}|${d}`)
+      if (materialised) {
+        // Already a real transaction → treat as one-off so rebalance updates
+        // the tx amount directly. Use the tx amount as the current value
+        // (overrides on materialised rule occurrences are otherwise dead).
+        const txAmt = Number(materialised.amount)
+        if (txAmt >= 0) continue
+        out.push({
+          ruleId: `tx:${materialised.id}`,
+          ruleName: rule.name,
+          date: d,
+          amount: -txAmt,
+          isOneOff: true,
+          transactionId: materialised.id,
+        })
+        continue
+      }
+
       const amt = o?.amount_override != null ? Number(o.amount_override) : Number(rule.amount)
       if (amt <= 0) continue
       out.push({ ruleId: rule.id, ruleName: rule.name, date: d, amount: amt })
@@ -151,9 +181,9 @@ export function listFuturePlannedExpenses(
   }
 
   // 2. One-off transactions dated in the future window with negative amount.
-  //    These are not linked to a recurring rule. Treat them as candidates too.
+  //    Skip ones already emitted via the rule branch above.
   for (const t of transactions) {
-    if (t.recurring_rule_id) continue // handled via overrides
+    if (t.recurring_rule_id) continue // emitted via rule branch when applicable
     if (t.occurred_on < fromIso || t.occurred_on > monthEndIso) continue
     const amt = Number(t.amount)
     if (amt >= 0) continue // income or zero
