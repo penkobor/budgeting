@@ -9,6 +9,7 @@ import {
 } from '@/hooks/queries'
 import { daysInMonth, formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
+import { MonthlyGoalCard } from '@/components/MonthlyGoalCard'
 
 export function MonthLens() {
   const today = new Date()
@@ -127,6 +128,12 @@ export function MonthLens() {
           <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="btn-outline">→</button>
         </div>
       </header>
+
+      <MonthlyGoalCard
+        yearMonth={`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`}
+        projectedEnd={series.totals.projectedEnd}
+        currency={currency}
+      />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <Kpi

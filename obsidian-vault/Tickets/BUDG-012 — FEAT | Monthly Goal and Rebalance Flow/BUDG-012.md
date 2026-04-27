@@ -1,6 +1,6 @@
 # BUDG-012 — FEAT | Monthly Goal + Rebalance Flow
 
-**Status:** Phase 1 done (data + projection helper)
+**Status:** Phase 2 done (data + projection + Goal hero card)
 **Branch:** `feature/budg-012-monthly-goal-rebalance`
 **Depends on:** existing recurring engine ([[BUDG-001]]), Forecast lens ([[BUDG-003]])
 
@@ -40,9 +40,9 @@ Triggered only when adding **expense** transactions. Income/transfers save norma
 - [x] Mutations: setGoal, clearGoal.
 
 ### ST3 — Goal hero card on MonthLens
-- [ ] Hero card with three states: not set / on track / over-by-N.
-- [ ] Inline-numpad edit on tap.
-- [ ] Long-press menu: edit / clear.
+- [x] Hero card with three states: not set / on-track / over-by-N.
+- [x] Inline numpad edit on tap (`inputMode="decimal"` + autoFocus).
+- [x] Clear action in edit sheet (replaces long-press menu).
 
 ### ST4 — Rebalance nested-drawer step
 - [ ] Detect overage on Save inside `AddTransactionDialog`.
@@ -67,6 +67,7 @@ Triggered only when adding **expense** transactions. Income/transfers save norma
 - [ ] [[BUDG-012 - ADR-002 - Recurring overrides table over template mutation]]
 
 ## Implementation Log
+- [[BUDG-012 - 2026-04-27 - phase2-goal-hero-card]] — MonthlyGoalCard + MonthLens integration
 - [[BUDG-012 - 2026-04-27 - phase1-data-and-projection]] — migrations, types, hooks, projection helper
 
 ## QA
