@@ -37,7 +37,10 @@ interface Props {
   initialDate?: string
   initialAmount?: number
   initialDescription?: string
+  /** For personal tx: `category_id`. For shared tx: `space_category_id`. */
   initialCategoryId?: string | null
+  /** Set when editing a shared tx so the form opens pinned to that space. */
+  initialSpaceId?: string | null
   initialRecurringRuleId?: string | null
   editId?: string
 }
@@ -51,6 +54,7 @@ export function AddTransactionDialog({
   initialAmount,
   initialDescription,
   initialCategoryId,
+  initialSpaceId,
   initialRecurringRuleId,
   editId,
 }: Props) {
@@ -65,8 +69,10 @@ export function AddTransactionDialog({
   const { data: mySpaces = [] } = useSpaces()
   // Personal mode: "Make this shared" toggle. When ON, the user picks a target
   // space and the form swaps category select to that space's space_categories.
-  const [makeShared, setMakeShared] = useState(false)
-  const [pickedSpaceId, setPickedSpaceId] = useState<string | null>(null)
+  // When editing an existing shared tx in Personal context, we seed both flags
+  // from `initialSpaceId` so the form opens already pinned to that space.
+  const [makeShared, setMakeShared] = useState<boolean>(!!initialSpaceId)
+  const [pickedSpaceId, setPickedSpaceId] = useState<string | null>(initialSpaceId ?? null)
   // Active target space for the form. In Joint context = currentSpaceId.
   // In Personal context with toggle ON = pickedSpaceId. Else null = personal.
   const targetSpaceId = currentSpaceId ?? (makeShared ? pickedSpaceId : null)
@@ -127,13 +133,19 @@ export function AddTransactionDialog({
       setSelected(new Set())
       setMode('even')
       setManualDeltas(new Map())
-      // Default the personal-mode toggle off; pre-select the only space if there
-      // is exactly one (so the picker is a no-op for the common 1-space user).
-      setMakeShared(false)
-      setPickedSpaceId(mySpaces.length === 1 ? mySpaces[0].id : null)
+      // Seed shared-toggle state. When editing an existing shared tx, default
+      // ON and pinned to that tx's space. Otherwise default OFF and pre-select
+      // the only space if the user belongs to exactly one (no-op picker).
+      if (initialSpaceId) {
+        setMakeShared(true)
+        setPickedSpaceId(initialSpaceId)
+      } else {
+        setMakeShared(false)
+        setPickedSpaceId(mySpaces.length === 1 ? mySpaces[0].id : null)
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialDate, initialAmount, initialDescription, initialCategoryId])
+  }, [open, initialDate, initialAmount, initialDescription, initialCategoryId, initialSpaceId])
 
   const filteredCats = (categories ?? []).filter((c) => c.kind === kind)
 
@@ -432,8 +444,9 @@ export function AddTransactionDialog({
 
             {/* Make-this-shared toggle — only in Personal context with at least
                 one space. In Joint context the dialog is already pinned to the
-                current space (no toggle needed). When editing, omit too. */}
-            {!editId && currentSpaceId === null && mySpaces.length > 0 && (
+                current space (no toggle needed). Available in edit mode too,
+                so a personal tx can be promoted to a space (or demoted back). */}
+            {currentSpaceId === null && mySpaces.length > 0 && (
               <div className="rounded-xl border border-border p-3 space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input

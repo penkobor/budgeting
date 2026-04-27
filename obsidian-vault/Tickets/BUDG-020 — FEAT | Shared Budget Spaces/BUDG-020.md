@@ -50,6 +50,7 @@ See [[BUDG-020 - Plan]].
 - _(none yet)_
 
 ### Implementation Log
+- [[BUDG-020 - 2026-04-27 - phase6-polish-and-rls-bugfix]] — Phase 6 polish + RLS create-space bugfix
 - [[BUDG-020 - 2026-04-27 - phase5-space-aware-filtering]] — Phase 5 + member emails; all screens honour currentSpaceId
 - [[BUDG-020 - 2026-04-27 - phase4-context-switcher]] — Phase 4 context switcher in Layout
 - [[BUDG-020 - 2026-04-27 - phase2-hooks-and-phase3-ui]] — Phase 2 hooks + Phase 3 Spaces UI shipped

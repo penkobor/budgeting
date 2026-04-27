@@ -70,12 +70,13 @@ Implement multi-space shared budget tagging on top of personal ledgers, with a C
 - [ ] **AddTransactionDialog**: context-aware preselect; in Joint context, category selector shows space categories; explicit toggle "make this shared" appears in Personal context.
 
 ### Phase 6 — Polish + edge cases
-- [ ] Delete space: confirm dialog ("transactions will become personal"); migration nulls `space_id` on members' tx.
-- [ ] Member leaves: confirm dialog; transactions remain visible to remaining members.
-- [ ] Convert existing personal tx to shared (and back) from tx detail.
-- [ ] Owner cannot leave without transferring ownership (or must delete the space).
-- [ ] Invite link UI: copy-to-clipboard, show TTL countdown, regenerate.
-- [ ] Empty states across all screens in Joint context.
+- [x] Delete space: confirm dialog ("transactions will become personal"); migration nulls `space_id` on members' tx.
+- [x] Member leaves: confirm dialog; transactions remain visible to remaining members.
+- [x] Convert existing personal tx to shared (and back) from tx detail.
+- [x] Owner cannot leave without transferring ownership (or must delete the space). *(UI hides Leave for owners and shows Delete instead — equivalent guarantee for MVP.)*
+- [x] Invite link UI: copy-to-clipboard, show TTL countdown, regenerate.
+- [x] Empty states across all screens in Joint context.
+- [x] **Bugfix:** explicit `owner_user_id` / `created_by` in `useCreateSpace` / `useGenerateInvite` (RLS WITH CHECK was failing in prod when relying on column default `auth.uid()`).
 
 ### Phase 7 — Tests + docs
 - [ ] RLS tests via `supabase test db`: members can read each other's shared tx; cannot read personal; cannot write.

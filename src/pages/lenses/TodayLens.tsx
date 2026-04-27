@@ -416,7 +416,8 @@ export function TodayLens() {
         initialDate={editingTx?.occurred_on}
         initialAmount={editingTx ? Number(editingTx.amount) : undefined}
         initialDescription={editingTx?.description ?? undefined}
-        initialCategoryId={editingTx?.category_id ?? null}
+        initialCategoryId={editingTx?.space_category_id ?? editingTx?.category_id ?? null}
+        initialSpaceId={editingTx?.space_id ?? null}
         editId={editingTx?.id}
       />
       <AddTransactionDialog

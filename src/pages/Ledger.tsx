@@ -302,6 +302,11 @@ export function Ledger() {
     return () => window.clearTimeout(id)
   }, [sameMonthAsToday, monthIso])
 
+  // In a Joint context with no shared activity yet, a generic 31-day grid
+  // looks like noise. Show a friendly hint pointing at how shared works.
+  const jointEmpty =
+    !!currentSpaceId && txs.length === 0 && rules.length === 0
+
   return (
     <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto pb-32">
       {/* Title: normal flow, scrolls away with content */}
@@ -309,6 +314,17 @@ export function Ledger() {
         <div className="label">Ledger</div>
         <h1 className="text-xl md:text-3xl font-semibold mt-0.5">{monthLabel}</h1>
       </div>
+
+      {jointEmpty && (
+        <div className="card p-4 md:p-5 text-sm text-fg-muted">
+          <div className="font-medium text-fg mb-1">No shared activity yet</div>
+          <p>
+            Tag any transaction or recurring rule with this space (use the
+            <span className="px-1 font-medium">Make this shared</span>
+            toggle from quick-add) — it will appear here for every member.
+          </p>
+        </div>
+      )}
 
       {/* Floating glass pill toolbar — sticky relative to the page wrapper so
           it stays pinned for the whole scroll range, not just while the title
@@ -590,7 +606,8 @@ export function Ledger() {
           initialDate={editing.occurred_on}
           initialAmount={Number(editing.amount)}
           initialDescription={editing.description ?? ''}
-          initialCategoryId={editing.category_id}
+          initialCategoryId={editing.space_category_id ?? editing.category_id}
+          initialSpaceId={editing.space_id}
           initialRecurringRuleId={editing.recurring_rule_id ?? null}
         />
       )}

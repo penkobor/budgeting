@@ -163,7 +163,14 @@ alter table public.space_invites     enable row level security;
 drop policy if exists "spaces: members can select" on public.spaces;
 create policy "spaces: members can select"
   on public.spaces for select
-  using (id in (select public.my_space_ids()));
+  using (
+    -- Owner must be visible directly: PostgREST's `Prefer: return=representation`
+    -- issues INSERT...RETURNING, and Postgres evaluates SELECT USING against the
+    -- new row before the AFTER INSERT trigger inserts the owner into
+    -- space_members. Without this branch every fresh INSERT fails with 42501.
+    owner_user_id = auth.uid()
+    or id in (select public.my_space_ids())
+  );
 
 drop policy if exists "spaces: authenticated can create" on public.spaces;
 create policy "spaces: authenticated can create"

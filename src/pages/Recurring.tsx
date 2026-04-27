@@ -85,7 +85,9 @@ export function RecurringPage() {
       <div className="card divide-y divide-border">
         {rules.length === 0 && (
           <div className="p-8 text-center text-sm text-fg-muted">
-            No recurring rules yet. Add one to auto-fill your monthly fixed payments.
+            {currentSpaceId
+              ? `No shared recurring rules in ${space?.name ?? 'this space'} yet. Add one to track joint subscriptions or repeating bills.`
+              : 'No recurring rules yet. Add one to auto-fill your monthly fixed payments.'}
           </div>
         )}
         {rules.map((r) => {
