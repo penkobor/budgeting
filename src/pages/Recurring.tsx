@@ -8,7 +8,7 @@ import {
   useUpsertRule,
 } from '@/hooks/queries'
 import { useSettings } from '@/hooks/queries'
-import { useSpace, useSpaceCategories } from '@/hooks/spaces'
+import { useSpace, useSpaceCategories, useSpaces } from '@/hooks/spaces'
 import { useUi } from '@/store/ui'
 import { Modal } from '@/components/ui/Modal'
 import { describeRule, expandRuleInRange } from '@/lib/recurring'
@@ -177,7 +177,18 @@ export function RecurringPage() {
 function RuleForm({ rule, spaceId, open, onClose }: { rule: RecurringRule | null; spaceId: string | null; open: boolean; onClose: () => void }) {
   const upsert = useUpsertRule()
   const { data: personalCategories = [] } = useCategories()
-  const { data: spaceCategories = [] } = useSpaceCategories(spaceId)
+  const { data: mySpaces = [] } = useSpaces()
+
+  // Joint context (`spaceId` set) hard-pins the rule to that space — the
+  // toggle is hidden. In Personal context the user can flip the rule shared
+  // and pick a target space; this is also how a personal rule is promoted
+  // to shared (or a shared rule is demoted back to personal) in edit mode.
+  const [makeShared, setMakeShared] = useState<boolean>(!!rule?.space_id)
+  const [pickedSpaceId, setPickedSpaceId] = useState<string | null>(
+    rule?.space_id ?? (mySpaces.length === 1 ? mySpaces[0].id : null),
+  )
+  const targetSpaceId = spaceId ?? (makeShared ? pickedSpaceId : null)
+  const { data: spaceCategories = [] } = useSpaceCategories(targetSpaceId)
 
   const [name, setName] = useState(rule?.name ?? '')
   const [amount, setAmount] = useState(String(rule?.amount ?? ''))
@@ -188,7 +199,7 @@ function RuleForm({ rule, spaceId, open, onClose }: { rule: RecurringRule | null
   const [monthOfYear, setMonthOfYear] = useState(String(rule?.month_of_year ?? 1))
   const [intervalDays, setIntervalDays] = useState(String(rule?.interval_days ?? 7))
   const [categoryId, setCategoryId] = useState(
-    (spaceId ? rule?.space_category_id : rule?.category_id) ?? '',
+    (targetSpaceId ? rule?.space_category_id : rule?.category_id) ?? '',
   )
   const [startsOn, setStartsOn] = useState(rule?.starts_on ?? isoDate(new Date()))
 
@@ -208,16 +219,16 @@ function RuleForm({ rule, spaceId, open, onClose }: { rule: RecurringRule | null
       interval_days: frequency === 'custom' ? parseInt(intervalDays, 10) : null,
       // CHECK constraint: (space_id IS NULL) = (space_category_id IS NULL).
       // category_id is mutually exclusive with the space columns.
-      category_id: spaceId ? null : (categoryId || null),
-      space_id: spaceId,
-      space_category_id: spaceId ? (categoryId || null) : null,
+      category_id: targetSpaceId ? null : (categoryId || null),
+      space_id: targetSpaceId,
+      space_category_id: targetSpaceId ? (categoryId || null) : null,
       starts_on: startsOn,
       active: rule?.active ?? true,
     })
     onClose()
   }
 
-  const cats = spaceId
+  const cats = targetSpaceId
     ? spaceCategories
     : personalCategories.filter((c) => c.kind === kind)
 
@@ -320,6 +331,53 @@ function RuleForm({ rule, spaceId, open, onClose }: { rule: RecurringRule | null
           <div className="label mb-1.5">Starts on</div>
           <input type="date" className="input stat-num" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} />
         </div>
+
+        {/* Make-this-shared toggle — only in Personal context with at least
+            one space. In Joint context the form is already pinned to the
+            current space (no toggle needed). Available in edit mode too,
+            so a personal rule can be promoted to shared (or demoted back). */}
+        {spaceId === null && mySpaces.length > 0 && (
+          <div className="rounded-xl border border-border p-3 space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={makeShared}
+                onChange={(e) => {
+                  setMakeShared(e.target.checked)
+                  // Reset category when switching, since the option lists differ.
+                  setCategoryId('')
+                  if (e.target.checked && !pickedSpaceId && mySpaces[0]) {
+                    setPickedSpaceId(mySpaces[0].id)
+                  }
+                }}
+              />
+              <span className="text-sm font-medium">Make this shared</span>
+              <span className="text-[11px] text-fg-subtle">
+                rule and its instances visible to space members
+              </span>
+            </label>
+            {makeShared && (
+              <div className="flex flex-wrap gap-1.5">
+                {mySpaces.map((s) => {
+                  const active = pickedSpaceId === s.id
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        setPickedSpaceId(s.id)
+                        setCategoryId('')
+                      }}
+                      className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${active ? 'bg-accent text-accent-fg border-accent' : 'border-border text-fg-muted hover:text-fg hover:border-border-strong'}`}
+                    >
+                      {s.name}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </form>
     </Modal>
   )

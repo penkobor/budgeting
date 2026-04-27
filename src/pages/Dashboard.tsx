@@ -35,8 +35,10 @@ export function Dashboard() {
 
   return (
     <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto">
-      {/* Period switcher — floating liquid-glass pills (no bar bg, each chip is its own glass element) */}
-      <div className="sticky top-[calc(env(safe-area-inset-top)-0.25rem)] md:top-0 z-30 -mx-4 md:-mx-8 px-4 md:px-8 py-2 -mt-4 md:-mt-8 mb-2 pointer-events-none">
+      {/* Period switcher — floating liquid-glass pills (no bar bg, each chip is its own glass element).
+          On mobile we sit BELOW the floating ContextSwitcher pill (top-right corner of the safe area)
+          so the two don't overlap when scrolling. */}
+      <div className="sticky top-[calc(env(safe-area-inset-top)+2.75rem)] md:top-0 z-30 -mx-4 md:-mx-8 px-4 md:px-8 py-2 -mt-4 md:-mt-8 mb-2 pointer-events-none">
         <div className="flex gap-2 overflow-x-auto -mx-1 px-1 py-1 pointer-events-auto">
           {LENSES.map(({ id, label, icon: Icon }) => {
             const active = lens === id
