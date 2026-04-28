@@ -14,6 +14,7 @@ Personal vault tracking work on the **budgeting_app** project (https://github.co
 - [[BUDG-012]] — FEAT | Monthly Goal and Rebalance Flow *(Phase 4 done; polish pending)*
 - [[BUDG-020]] — FEAT | Shared Budget Spaces *(superseded by BUDG-021)*
 - [[BUDG-021]] — FEAT | Public Share Page *(in progress — supersedes BUDG-020)*
+- [[BUDG-022]] — FEAT | Shared Redistribution *(design phase — depends on BUDG-021)*
 
 ## Other
 

@@ -23,12 +23,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/Implementation/BUDG-012 - Plan.md",
+                "file": "Tickets/BUDG-022 — FEAT | Shared Redistribution/Implementation/BUDG-022 - Plan.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "BUDG-012 - Plan"
+              "title": "BUDG-022 - Plan"
             }
           }
         ],
@@ -89,7 +89,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 767.5
+    "width": 489.5
   },
   "right": {
     "id": "cc4330cdd0c4f3de",
@@ -182,6 +182,10 @@
   },
   "active": "dfbbbfc62232319f",
   "lastOpenFiles": [
+    "Tickets/BUDG-022 — FEAT | Shared Redistribution/BUDG-022.md",
+    "Tickets/BUDG-022 — FEAT | Shared Redistribution/ADR/BUDG-022 - ADR-001 - Shared redistribution lives in owner app, not public page.md",
+    "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/BUDG-012.md",
+    "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/Implementation/BUDG-012 - Plan.md",
     "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/Implementation/Log/BUDG-012 - 2026-04-27 - phase5-polish.md",
     "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/Implementation/Log/BUDG-012 - 2026-04-27 - bugfix-opening-and-oneoff-candidates.md",
     "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/Implementation/Log/BUDG-012 - 2026-04-27 - phase4-atomic-rpc.md",
@@ -197,9 +201,7 @@
     "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/ADR/BUDG-012 - ADR-002 - Recurring overrides table over template mutation.md",
     "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/ADR/BUDG-012 - ADR-001 - Goal as end-of-month balance, not expense cap.md",
     "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/ADR",
-    "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/Implementation/BUDG-012 - Plan.md",
     "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/Implementation",
-    "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow/BUDG-012.md",
     "Tickets/BUDG-012 — FEAT | Monthly Goal and Rebalance Flow",
     "Tickets/BUDG-009 — UX | Liquid Glass refinements/Implementation/Log/BUDG-009 - 2026-04-27 - specular-active-pill.md",
     "Tickets/BUDG-009 — UX | Liquid Glass refinements/ADR/BUDG-009 - ADR-001 - Skip SVG-displacement refraction on iOS Safari.md",
@@ -214,8 +216,6 @@
     "Tickets/BUDG-004 — UX | iOS PWA chrome polish/Implementation/Log/BUDG-004 - 2026-04-27 - ios-pwa-chrome-foundation.md",
     "Tickets/BUDG-010 — FEAT | iOS push and app badge/Implementation/BUDG-010 - Plan.md",
     "Tickets/BUDG-010 — FEAT | iOS push and app badge/BUDG-010.md",
-    "Tickets/BUDG-009 — UX | Liquid Glass refinements/BUDG-009.md",
-    "Tickets/BUDG-009 — UX | Liquid Glass refinements/Implementation/BUDG-009 - Plan.md",
     "Tickets/BUDG-010 — FEAT | iOS push and app badge/Implementation/Log",
     "Tickets/BUDG-010 — FEAT | iOS push and app badge/QA",
     "Pasted image 20260426235354.png",
