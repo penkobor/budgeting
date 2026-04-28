@@ -123,3 +123,39 @@ export function buildShareUrl(slug: string): string {
   const { origin, pathname } = window.location
   return `${origin}${pathname}#/share/${slug}`
 }
+
+// BUDG-022 — atomic redistribution. See ADR-004 for the contract.
+export interface RedistributePayload {
+  tx_updates?: { id: string; amount: number }[]
+  tx_inserts?: {
+    occurred_on: string
+    amount: number
+    description?: string | null
+    category_id?: string | null
+    recurring_rule_id?: string | null
+    planned?: boolean
+  }[]
+  override_upserts?: {
+    recurring_rule_id: string
+    occurrence_date: string
+    amount_override: number | null
+    skipped?: boolean
+  }[]
+}
+
+export function useRedistributeShared() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: RedistributePayload) => {
+      const { error } = await supabase.rpc('redistribute_shared', {
+        payload: payload as unknown as never,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['recurring_overrides'] })
+      qc.invalidateQueries({ queryKey: ['public_share'] })
+    },
+  })
+}

@@ -4,7 +4,9 @@
 
 ## Status
 
-Accepted — 2026-04-28
+Superseded by [[BUDG-022 - ADR-004 - Dedicated redistribute_shared RPC|ADR-004]] — 2026-04-28
+
+*Originally accepted 2026-04-28; reversed the same day after reading the actual `apply_rebalance` v2 implementation, which is too BUDG-012-specific (forced sign flip on `tx_updates.new_amount`, mandatory `tx` insert).*
 
 ## Context
 

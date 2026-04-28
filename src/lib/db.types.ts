@@ -373,6 +373,7 @@ export type Database = {
         }
       }
       get_public_share: { Args: { p_slug: string }; Returns: Json }
+      redistribute_shared: { Args: { payload: Json }; Returns: undefined }
     }
     Enums: {
       asset_type: "gold" | "stocks" | "crypto" | "cash" | "other"

@@ -26,7 +26,8 @@ Let the owner *redistribute* money between their own `is_shared = true` events w
 - [[BUDG-022 - Plan|Implementation Plan]]
 - [[BUDG-022 - ADR-001 - Shared redistribution lives in owner app, not public page|ADR-001]]
 - [[BUDG-022 - ADR-002 - Drag-and-drop slider as primary UX|ADR-002]]
-- [[BUDG-022 - ADR-003 - Reuse rebalance machinery, no new RPC|ADR-003]]
+- [[BUDG-022 - ADR-003 - Reuse rebalance machinery, no new RPC|ADR-003]] *(superseded by ADR-004)*
+- [[BUDG-022 - ADR-004 - Dedicated redistribute_shared RPC|ADR-004]]
 
 ## Wireframes
 
@@ -58,6 +59,7 @@ flowchart LR
 ## Implementation Log
 
 - [[BUDG-022 - 2026-04-28 - phase1-shared-lens-scaffold|2026-04-28 — Phase 1: read-only Shared Lens scaffold landed]]
+- [[BUDG-022 - 2026-04-28 - phase2-dnd-same-month|2026-04-28 — Phase 2: same-month DnD redistribute + new RPC (ADR-004 supersedes ADR-003)]]
 
 ## Related
 
