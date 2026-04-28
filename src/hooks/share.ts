@@ -40,6 +40,8 @@ export function useUpsertShareLink() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (input: { display_name: string; slug?: string }) => {
+      const { data: u } = await supabase.auth.getUser()
+      if (!u.user) throw new Error('Not authenticated')
       const { data: existing } = await supabase
         .from('share_links')
         .select('*')
@@ -48,7 +50,7 @@ export function useUpsertShareLink() {
       const { data, error } = await supabase
         .from('share_links')
         .upsert(
-          { slug, display_name: input.display_name },
+          { user_id: u.user.id, slug, display_name: input.display_name },
           { onConflict: 'user_id' },
         )
         .select()

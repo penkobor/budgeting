@@ -91,7 +91,7 @@ create index if not exists recurring_rules_is_shared_idx
 -- =========================================================================
 
 create table if not exists public.share_links (
-  user_id uuid primary key references auth.users(id) on delete cascade,
+  user_id uuid primary key default auth.uid() references auth.users(id) on delete cascade,
   slug text not null unique,
   display_name text not null check (length(display_name) between 1 and 80),
   created_at timestamptz not null default now(),
