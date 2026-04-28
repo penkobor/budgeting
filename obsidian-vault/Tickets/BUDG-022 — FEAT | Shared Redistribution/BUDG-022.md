@@ -62,6 +62,7 @@ flowchart LR
 - [[BUDG-022 - 2026-04-28 - phase2-dnd-same-month|2026-04-28 — Phase 2: same-month DnD redistribute + new RPC (ADR-004 supersedes ADR-003)]]
 - [[BUDG-022 - 2026-04-28 - phase3-cross-month-and-dropzones|2026-04-28 — Phase 3: cross-month + drop-on-empty-zone "+ new shared event"]]
 - [[BUDG-022 - 2026-04-28 - phase4-recurring-overrides|2026-04-28 — Phase 4: recurring sources via single-occurrence overrides]]
+- [[BUDG-022 - 2026-04-28 - phase6-quickadd-shared-event|2026-04-28 — Phase 6: standalone "+ Add shared event" (expense-only, optional category)]]
 
 ## Related
 

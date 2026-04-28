@@ -2,6 +2,7 @@ import { useMemo, useState, useRef, useCallback } from 'react'
 import { Share2, Loader2, Loader, Plus } from 'lucide-react'
 import { motion, type PanInfo } from 'framer-motion'
 import {
+  useCategories,
   useRecurringOverridesInRange,
   useRecurringRules,
   useSettings,
@@ -18,7 +19,7 @@ import { effectiveOccurrenceAmount } from '@/lib/projection'
 import { formatMoney, isoDate } from '@/lib/utils'
 import { pushToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
-import type { RecurringOverride, RecurringRule, Transaction } from '@/lib/db.types'
+import type { Category, RecurringOverride, RecurringRule, Transaction } from '@/lib/db.types'
 
 /**
  * BUDG-022 — Shared Lens (owner-only).
@@ -39,6 +40,12 @@ export function SharedLens() {
   const { data: settings } = useSettings()
   const currency = settings?.currency ?? 'CZK'
   const { data: shareLink, isLoading: shareLoading } = useShareLink()
+  const { data: categories = [] } = useCategories()
+  const expenseCategories = useMemo(
+    () => categories.filter((c) => c.kind !== 'income'),
+    [categories],
+  )
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
 
   const horizon = useMemo(() => {
     const today = new Date()
@@ -243,7 +250,15 @@ export function SharedLens() {
               )}
             </p>
           </div>
-          <div className="text-right shrink-0">
+          <div className="flex items-start gap-3 shrink-0">
+            <button
+              className="btn-primary inline-flex items-center gap-1.5 text-xs"
+              onClick={() => setQuickAddOpen(true)}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add shared event
+            </button>
+            <div className="text-right">
             <div className="text-[11px] uppercase tracking-wider text-fg-subtle">Total</div>
             {totalExpense > 0 && (
               <div className="stat-num font-semibold text-negative">
@@ -255,6 +270,7 @@ export function SharedLens() {
                 +{formatMoney(totalIncome, currency)}
               </div>
             )}
+            </div>
           </div>
         </div>
       </header>
@@ -359,6 +375,37 @@ export function SharedLens() {
           )}
         </section>
       ))}
+
+      {quickAddOpen && (
+        <QuickAddSharedModal
+          currency={currency}
+          today={isoDate(horizon.today)}
+          categories={expenseCategories}
+          onCancel={() => setQuickAddOpen(false)}
+          onConfirm={async (vals) => {
+            const magnitude = Math.abs(vals.amount)
+            if (magnitude <= 0) return
+            const payload: RedistributePayload = {
+              tx_inserts: [
+                {
+                  occurred_on: vals.occurredOn,
+                  amount: -magnitude,
+                  description: vals.description.trim() || null,
+                  category_id: vals.categoryId || null,
+                  planned: true,
+                },
+              ],
+            }
+            try {
+              await redistribute.mutateAsync(payload)
+              pushToast(`Added shared expense ${formatMoney(magnitude, currency)}`, 'success')
+              setQuickAddOpen(false)
+            } catch (e) {
+              pushToast((e as Error).message, 'error')
+            }
+          }}
+        />
+      )}
 
       {createDraft && (
         <CreateFromDropModal
@@ -728,4 +775,113 @@ function useMonthGrouping(args: {
 function shortDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00')
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function QuickAddSharedModal(props: {
+  currency: string
+  today: string
+  categories: Category[]
+  onCancel: () => void
+  onConfirm: (vals: {
+    amount: number
+    occurredOn: string
+    description: string
+    categoryId: string | null
+  }) => Promise<void>
+}) {
+  const { currency, today, categories, onCancel, onConfirm } = props
+  const [amount, setAmount] = useState<number>(0)
+  const [occurredOn, setOccurredOn] = useState<string>(today)
+  const [description, setDescription] = useState<string>('')
+  const [categoryId, setCategoryId] = useState<string>('')
+  const [busy, setBusy] = useState(false)
+  return (
+    <Modal
+      open
+      onOpenChange={(o) => !o && !busy && onCancel()}
+      title="Add shared event"
+      description="Creates a planned shared expense visible on your public link and in your own ledger."
+      footer={
+        <div className="flex justify-end gap-2">
+          <button className="btn-ghost" onClick={onCancel} disabled={busy}>
+            Cancel
+          </button>
+          <button
+            className="btn-primary"
+            disabled={busy || amount <= 0}
+            onClick={async () => {
+              setBusy(true)
+              try {
+                await onConfirm({
+                  amount,
+                  occurredOn,
+                  description,
+                  categoryId: categoryId || null,
+                })
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            {busy ? <Loader className="w-4 h-4 animate-spin" /> : 'Create'}
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label className="text-xs uppercase tracking-wider text-fg-subtle">
+            Amount ({currency})
+          </label>
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="0.01"
+            value={amount === 0 ? '' : amount}
+            onChange={(e) => setAmount(Number(e.target.value) || 0)}
+            placeholder="0"
+            className="input mt-1 w-full stat-num text-lg"
+            autoFocus
+          />
+        </div>
+        <div>
+          <label className="text-xs uppercase tracking-wider text-fg-subtle">Date</label>
+          <input
+            type="date"
+            value={occurredOn}
+            onChange={(e) => setOccurredOn(e.target.value)}
+            className="input mt-1 w-full"
+          />
+        </div>
+        <div>
+          <label className="text-xs uppercase tracking-wider text-fg-subtle">Description</label>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="e.g. Dinner with friends"
+            className="input mt-1 w-full"
+          />
+        </div>
+        <div>
+          <label className="text-xs uppercase tracking-wider text-fg-subtle">
+            Category (optional)
+          </label>
+          <select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className="input mt-1 w-full"
+          >
+            <option value="">— None —</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </Modal>
+  )
 }
