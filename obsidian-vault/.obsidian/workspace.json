@@ -182,6 +182,7 @@
   },
   "active": "dfbbbfc62232319f",
   "lastOpenFiles": [
+    "Tickets/BUDG-022 — FEAT | Shared Redistribution/Implementation/Log/BUDG-022 - 2026-04-28 - phase5-mobile-long-press.md",
     "Tickets/BUDG-022 — FEAT | Shared Redistribution/Implementation/Log/BUDG-022 - 2026-04-28 - phase6-quickadd-shared-event.md",
     "Tickets/BUDG-022 — FEAT | Shared Redistribution/Implementation/Log/BUDG-022 - 2026-04-28 - phase4-recurring-overrides.md",
     "Tickets/BUDG-022 — FEAT | Shared Redistribution/Implementation/Log/BUDG-022 - 2026-04-28 - phase3-cross-month-and-dropzones.md",
@@ -215,7 +216,6 @@
     "Tickets/BUDG-007 — INFRA | Cold-restart resilience/Implementation/Log/BUDG-007 - 2026-04-27 - query-cache-persist-and-route-memory.md",
     "Tickets/BUDG-007 — INFRA | Cold-restart resilience/ADR/BUDG-007 - ADR-001 - IndexedDB query-cache persistence via idb-keyval.md",
     "Tickets/BUDG-006 — UX | Vaul bottom-sheet modals/ADR/BUDG-006 - ADR-001 - Vaul over react-spring-bottom-sheet vs custom.md",
-    "Tickets/BUDG-006 — UX | Vaul bottom-sheet modals/Implementation/Log/BUDG-006 - 2026-04-27 - vaul-mobile-sheet-refactor.md",
     "Tickets/BUDG-010 — FEAT | iOS push and app badge/Implementation/Log",
     "Tickets/BUDG-010 — FEAT | iOS push and app badge/QA",
     "Pasted image 20260426235354.png",

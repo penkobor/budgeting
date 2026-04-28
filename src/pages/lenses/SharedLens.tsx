@@ -119,6 +119,25 @@ export function SharedLens() {
   const [pickerSrc, setPickerSrc] = useState<Entry | null>(null)
   const [pickerRowTarget, setPickerRowTarget] = useState<Entry | null>(null)
 
+  // Phase 7 — brief diff-highlight pulse on rows touched by a redistribute.
+  const [recentlyChanged, setRecentlyChanged] = useState<Set<string>>(new Set())
+  const pulseClearRef = useRef<number | null>(null)
+  const pulseKeys = useCallback((keys: string[]) => {
+    setRecentlyChanged(new Set(keys))
+    if (pulseClearRef.current != null) window.clearTimeout(pulseClearRef.current)
+    pulseClearRef.current = window.setTimeout(() => {
+      setRecentlyChanged(new Set())
+      pulseClearRef.current = null
+    }, 1500)
+  }, [])
+  const affectedKeysFromPayload = useCallback((p: RedistributePayload): string[] => {
+    const keys: string[] = []
+    for (const u of p.tx_updates ?? []) keys.push(`tx:${u.id}`)
+    for (const o of p.override_upserts ?? [])
+      keys.push(`r:${o.recurring_rule_id}:${o.occurrence_date}`)
+    return keys
+  }, [])
+
   const enterPickerMode = useCallback((entry: Entry) => {
     setPickerSrc(entry)
     setPickerRowTarget(null)
@@ -204,13 +223,14 @@ export function SharedLens() {
       deltaPayload(src, newSrc),
       deltaPayload(dst, newDst),
     )
+    pulseKeys(affectedKeysFromPayload(payload))
     try {
       await redistribute.mutateAsync(payload)
       pushToast(`Moved ${formatMoney(safeN, currency)}`, 'success')
     } catch (e) {
       pushToast((e as Error).message, 'error')
     }
-  }, [dragSrc, dragTargetKey, transferN, allEntries, redistribute, currency, horizon.today])
+  }, [dragSrc, dragTargetKey, transferN, allEntries, redistribute, currency, horizon.today, pulseKeys, affectedKeysFromPayload])
 
   if (shareLoading || txLoading || rulesLoading) {
     return (
@@ -329,6 +349,7 @@ export function SharedLens() {
                 const pickerValid =
                   !!pickerSrc && pickerSrc.key !== e.key && isValidPair(pickerSrc, e)
                 const pickerDimmed = !!pickerSrc && !pickerValid && pickerSrc.key !== e.key
+                const pulse = recentlyChanged.has(e.key)
                 return (
                   <li
                     key={e.key}
@@ -340,7 +361,7 @@ export function SharedLens() {
                       validHere ? 'bg-accent/10' : ''
                     } ${isHover && !validHere ? 'bg-negative/10' : ''} ${
                       pickerValid ? 'bg-accent/5 ring-1 ring-inset ring-accent/40 cursor-pointer' : ''
-                    } ${pickerDimmed ? 'opacity-40' : ''}`}
+                    } ${pickerDimmed ? 'opacity-40' : ''} ${pulse ? 'bg-accent/20 animate-pulse' : ''}`}
                   >
                     <span className="stat-num text-xs text-fg-subtle shrink-0 w-16">
                       {e.dateLabel}
@@ -459,6 +480,7 @@ export function SharedLens() {
               deltaPayload(pickerSrc, newSrc),
               deltaPayload(pickerRowTarget, newDst),
             )
+            pulseKeys(affectedKeysFromPayload(payload))
             try {
               await redistribute.mutateAsync(payload)
               pushToast(`Moved ${formatMoney(safeN, currency)}`, 'success')
@@ -525,6 +547,7 @@ export function SharedLens() {
                 },
               ],
             }
+            pulseKeys(affectedKeysFromPayload(payload))
             try {
               await redistribute.mutateAsync(payload)
               pushToast(`Created and moved ${formatMoney(safeN, currency)}`, 'success')

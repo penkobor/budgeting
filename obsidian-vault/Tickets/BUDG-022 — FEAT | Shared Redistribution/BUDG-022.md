@@ -64,6 +64,7 @@ flowchart LR
 - [[BUDG-022 - 2026-04-28 - phase4-recurring-overrides|2026-04-28 — Phase 4: recurring sources via single-occurrence overrides]]
 - [[BUDG-022 - 2026-04-28 - phase6-quickadd-shared-event|2026-04-28 — Phase 6: standalone "+ Add shared event" (expense-only, optional category)]]
 - [[BUDG-022 - 2026-04-28 - phase5-mobile-long-press|2026-04-28 — Phase 5: long-press → picker mode for touch devices]]
+- [[BUDG-022 - 2026-04-28 - phase7-optimistic-and-pulse|2026-04-28 — Phase 7: optimistic updates + diff-highlight pulse (closes ticket)]]
 
 ## Related
 
