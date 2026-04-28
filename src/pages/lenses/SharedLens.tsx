@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useCallback } from 'react'
-import { Share2, Loader2, Loader, Plus } from 'lucide-react'
+import { Share2, Loader2, Loader, Plus, Calculator, X } from 'lucide-react'
 import { motion, type PanInfo } from 'framer-motion'
 import {
   useCategories,
@@ -109,6 +109,8 @@ export function SharedLens() {
   const totalIncome = months.reduce((s, m) => s + m.totalIncome, 0)
   const totalExpense = months.reduce((s, m) => s + m.totalExpense, 0)
   const eventCount = months.reduce((s, m) => s + m.entries.length, 0)
+  void totalIncome
+  void totalExpense
 
   const [dragSrc, setDragSrc] = useState<Entry | null>(null)
   const [dragTargetKey, setDragTargetKey] = useState<string | null>(null)
@@ -136,6 +138,22 @@ export function SharedLens() {
     for (const o of p.override_upserts ?? [])
       keys.push(`r:${o.recurring_rule_id}:${o.occurrence_date}`)
     return keys
+  }, [])
+
+  // Calculator mode — select rows, see running total in a bubble.
+  const [calcMode, setCalcMode] = useState(false)
+  const [calcSelected, setCalcSelected] = useState<Set<string>>(new Set())
+  const toggleCalcSelected = useCallback((key: string) => {
+    setCalcSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+  const exitCalcMode = useCallback(() => {
+    setCalcMode(false)
+    setCalcSelected(new Set())
   }, [])
 
   const enterPickerMode = useCallback((entry: Entry) => {
@@ -285,27 +303,26 @@ export function SharedLens() {
               )}
             </p>
           </div>
-          <div className="flex items-start gap-3 shrink-0">
+          <div className="flex items-start gap-2 shrink-0">
             <button
-              className="btn-primary inline-flex items-center gap-1.5 text-xs"
-              onClick={() => setQuickAddOpen(true)}
+              className={`btn-ghost inline-flex items-center gap-1.5 text-xs ${
+                calcMode ? 'ring-1 ring-accent text-accent' : ''
+              }`}
+              onClick={() => (calcMode ? exitCalcMode() : setCalcMode(true))}
+              title="Calculator mode — tap rows to sum"
             >
-              <Plus className="w-3.5 h-3.5" />
-              Add shared event
+              <Calculator className="w-3.5 h-3.5" />
+              {calcMode ? 'Exit' : 'Calc'}
             </button>
-            <div className="text-right">
-            <div className="text-[11px] uppercase tracking-wider text-fg-subtle">Total</div>
-            {totalExpense > 0 && (
-              <div className="stat-num font-semibold text-negative">
-                {formatMoney(totalExpense, currency)}
-              </div>
+            {!calcMode && (
+              <button
+                className="btn-primary inline-flex items-center gap-1.5 text-xs"
+                onClick={() => setQuickAddOpen(true)}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add shared event
+              </button>
             )}
-            {totalIncome > 0 && (
-              <div className="stat-num text-sm text-positive">
-                +{formatMoney(totalIncome, currency)}
-              </div>
-            )}
-            </div>
           </div>
         </div>
       </header>
@@ -321,24 +338,6 @@ export function SharedLens() {
         <section key={m.key} className="card p-4 md:p-5 space-y-3">
           <header className="flex items-baseline justify-between gap-3">
             <h3 className="font-semibold capitalize">{m.label}</h3>
-            <div className="text-xs text-fg-subtle">
-              {m.totalExpense > 0 && (
-                <>
-                  Total:{' '}
-                  <span className="stat-num font-medium text-negative">
-                    {formatMoney(m.totalExpense, currency)}
-                  </span>
-                </>
-              )}
-              {m.totalIncome > 0 && (
-                <>
-                  {m.totalExpense > 0 ? ' · ' : ''}
-                  <span className="stat-num font-medium text-positive">
-                    +{formatMoney(m.totalIncome, currency)}
-                  </span>
-                </>
-              )}
-            </div>
           </header>
           {m.entries.length > 0 && (
             <ul className="divide-y divide-border -mx-4 md:-mx-5">
@@ -350,18 +349,22 @@ export function SharedLens() {
                   !!pickerSrc && pickerSrc.key !== e.key && isValidPair(pickerSrc, e)
                 const pickerDimmed = !!pickerSrc && !pickerValid && pickerSrc.key !== e.key
                 const pulse = recentlyChanged.has(e.key)
+                const calcSelected_ = calcMode && calcSelected.has(e.key)
                 return (
                   <li
                     key={e.key}
                     data-share-row={e.key}
                     onClick={() => {
-                      if (pickerValid) setPickerRowTarget(e)
+                      if (calcMode) toggleCalcSelected(e.key)
+                      else if (pickerValid) setPickerRowTarget(e)
                     }}
                     className={`px-4 md:px-5 py-2.5 flex items-baseline gap-3 text-sm transition-colors ${
                       validHere ? 'bg-accent/10' : ''
                     } ${isHover && !validHere ? 'bg-negative/10' : ''} ${
                       pickerValid ? 'bg-accent/5 ring-1 ring-inset ring-accent/40 cursor-pointer' : ''
-                    } ${pickerDimmed ? 'opacity-40' : ''} ${pulse ? 'bg-accent/20 animate-pulse' : ''}`}
+                    } ${pickerDimmed ? 'opacity-40' : ''} ${pulse ? 'bg-accent/20 animate-pulse' : ''} ${
+                      calcMode ? 'cursor-pointer' : ''
+                    } ${calcSelected_ ? 'bg-accent/15 ring-1 ring-inset ring-accent/40' : ''}`}
                   >
                     <span className="stat-num text-xs text-fg-subtle shrink-0 w-16">
                       {e.dateLabel}
@@ -383,11 +386,13 @@ export function SharedLens() {
                       entry={e}
                       currency={currency}
                       pending={redistribute.isPending && isSrc}
-                      disableDrag={!!pickerSrc}
+                      disableDrag={!!pickerSrc || calcMode}
                       onDragStart={() => onDragStart(e)}
                       onDrag={onDrag}
                       onDragEnd={onDragEnd}
-                      onLongPress={() => enterPickerMode(e)}
+                      onLongPress={() => {
+                        if (!calcMode) enterPickerMode(e)
+                      }}
                     />
                   </li>
                 )
@@ -558,11 +563,75 @@ export function SharedLens() {
           }}
         />
       )}
+
+      {calcMode && (
+        <CalculatorBubble
+          selected={calcSelected}
+          entries={allEntries}
+          currency={currency}
+          onClear={() => setCalcSelected(new Set())}
+          onExit={exitCalcMode}
+        />
+      )}
     </div>
   )
 }
 
 // ---------- Payload assembly helpers ----------
+
+function CalculatorBubble(props: {
+  selected: Set<string>
+  entries: Entry[]
+  currency: string
+  onClear: () => void
+  onExit: () => void
+}) {
+  const { selected, entries, currency, onClear, onExit } = props
+  const sum = useMemo(() => {
+    let s = 0
+    for (const e of entries) if (selected.has(e.key)) s += e.amount
+    return s
+  }, [entries, selected])
+  const count = selected.size
+  return (
+    <div className="fixed bottom-4 right-4 z-40 max-w-[calc(100vw-2rem)]">
+      <div className="card shadow-lg p-3 flex items-center gap-3 bg-bg-elev/95 backdrop-blur border border-accent/40">
+        <div className="min-w-0">
+          <div className="text-[10px] uppercase tracking-wider text-fg-subtle">
+            Calculator
+          </div>
+          <div className="text-xs text-fg-muted">
+            {count} selected
+          </div>
+          <div
+            className={`stat-num text-lg font-semibold tabular-nums ${
+              sum > 0 ? 'text-positive' : sum < 0 ? 'text-negative' : 'text-fg'
+            }`}
+          >
+            {sum >= 0 ? '+' : '−'}
+            {formatMoney(Math.abs(sum), currency)}
+          </div>
+        </div>
+        {count > 0 && (
+          <button
+            className="btn-ghost text-xs"
+            onClick={onClear}
+            title="Clear selection"
+          >
+            Clear
+          </button>
+        )}
+        <button
+          className="btn-ghost p-1.5"
+          onClick={onExit}
+          title="Exit calculator mode"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  )
+}
 
 /**
  * Build the partial payload that turns `entry`'s effective amount into
