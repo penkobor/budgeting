@@ -44,7 +44,11 @@ export function ForecastLens() {
     [assets],
   )
 
-  // Build month-by-month projection
+  // Build month-by-month projection. Data points are placed on the 1st of
+  // each month and represent the running balance AT THE START of that day,
+  // so they line up with what Ledger shows on day 1 of that month.
+  // For horizon = N we emit N+1 points: today's month-start (opening) and
+  // then one point per following month boundary.
   const series = useMemo(() => {
     const out: Array<{
       label: string; iso: string;
@@ -54,6 +58,19 @@ export function ForecastLens() {
     const opening0 = opening?.opening_balance ?? 0
     let baseline = opening0
     let scenario = opening0
+    const labelFor = (d: Date) =>
+      d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+
+    // Leading point — 1st of current month, opening balance.
+    out.push({
+      label: labelFor(horizonStart),
+      iso: horizonStart.toISOString().slice(0, 10),
+      baselineBalance: Math.round(baseline),
+      scenarioBalance: Math.round(scenario),
+      monthlyIncome: 0,
+      monthlyExpense: 0,
+    })
+
     // Pre-bucket transactions by YYYY-MM and a Set of realised rule|date
     // pairs so we don't double-count a recurring rule already entered as a tx.
     const txByMonth: Record<string, typeof txs> = {}
@@ -66,6 +83,7 @@ export function ForecastLens() {
     for (let i = 0; i < horizon; i++) {
       const monthStart = new Date(today.getFullYear(), today.getMonth() + i, 1)
       const monthEnd = new Date(today.getFullYear(), today.getMonth() + i + 1, 0)
+      const nextMonthStart = new Date(today.getFullYear(), today.getMonth() + i + 1, 1)
       const ym = monthStart.toISOString().slice(0, 7)
       let income = 0, expense = 0
       // 1. Ledger entries (manual + already-materialised recurring) for this month
@@ -88,9 +106,10 @@ export function ForecastLens() {
       const scenarioDelta = (income + salaryDelta) - expense * (1 + spendDeltaPct / 100)
       baseline += baselineDelta
       scenario += scenarioDelta
+      // Emit dot at the start of NEXT month (= end of this month).
       out.push({
-        label: monthStart.toLocaleDateString(undefined, { month: 'short', year: '2-digit' }),
-        iso: ym,
+        label: labelFor(nextMonthStart),
+        iso: nextMonthStart.toISOString().slice(0, 10),
         baselineBalance: Math.round(baseline),
         scenarioBalance: Math.round(scenario),
         monthlyIncome: income,
@@ -98,7 +117,7 @@ export function ForecastLens() {
       })
     }
     return out
-  }, [rules, overrides, opening, today, horizon, salaryDelta, spendDeltaPct, txs])
+  }, [rules, overrides, opening, today, horizon, horizonStart, salaryDelta, spendDeltaPct, txs])
 
   const last = series[series.length - 1]
   const opening0 = opening?.opening_balance ?? 0
@@ -172,8 +191,8 @@ export function ForecastLens() {
                      tickFormatter={(v) => formatMoney(v, currency).replace(/[^\d-]/g, '').slice(0, 6)} />
               <Tooltip contentStyle={{ background: 'rgb(var(--bg-card))', border: '1px solid rgb(var(--border))', borderRadius: 12 }} />
               <ReferenceLine y={opening0} stroke="rgb(var(--border-strong))" strokeDasharray="4 4" />
-              <Area type="monotone" dataKey="scenarioBalance" name="Scenario" stroke="rgb(var(--accent))" strokeWidth={2} fill="url(#scenarioFill)" />
-              <Line type="monotone" dataKey="baselineBalance" name="Baseline" stroke="rgb(var(--fg-subtle))" strokeWidth={1.5} strokeDasharray="5 4" dot={false} />
+              <Area type="monotone" dataKey="scenarioBalance" name="Scenario" stroke="rgb(var(--accent))" strokeWidth={2} fill="url(#scenarioFill)" dot={{ r: 3, strokeWidth: 0, fill: 'rgb(var(--accent))' }} activeDot={{ r: 5 }} />
+              <Line type="monotone" dataKey="baselineBalance" name="Baseline" stroke="rgb(var(--fg-subtle))" strokeWidth={1.5} strokeDasharray="5 4" dot={{ r: 2.5, strokeWidth: 0, fill: 'rgb(var(--fg-subtle))' }} activeDot={{ r: 4 }} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>

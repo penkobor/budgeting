@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { expandRuleInRange } from '@/lib/recurring'
+import { effectiveOccurrenceAmount } from '@/lib/projection'
 import type {
   Category,
   CategoryInsert,
@@ -172,7 +173,7 @@ export function useMonthlyOpening(monthIso: string) {
       //      + Σ all transactions (planned + actual) between anchor.month and monthIso (exclusive)
       //      + Σ recurring-rule instances over the same range that are NOT already
       //        materialised as a transaction (avoiding double-count).
-      const [txsRes, rulesRes] = await Promise.all([
+      const [txsRes, rulesRes, ovRes] = await Promise.all([
         supabase
           .from('transactions')
           .select('amount,occurred_on,recurring_rule_id')
@@ -181,11 +182,18 @@ export function useMonthlyOpening(monthIso: string) {
         supabase
           .from('recurring_rules')
           .select('*'),
+        supabase
+          .from('recurring_overrides')
+          .select('*')
+          .gte('occurrence_date', anchor.month)
+          .lt('occurrence_date', monthIso),
       ])
       if (txsRes.error) throw txsRes.error
       if (rulesRes.error) throw rulesRes.error
+      if (ovRes.error) throw ovRes.error
       const txs = txsRes.data ?? []
       const rules = (rulesRes.data ?? []) as RecurringRule[]
+      const overrides = (ovRes.data ?? []) as RecurringOverride[]
       const txSum = txs.reduce((s, t) => s + Number(t.amount), 0)
       const realised = new Set(
         txs.filter((t) => t.recurring_rule_id).map((t) => `${t.recurring_rule_id}|${t.occurred_on}`),
@@ -197,7 +205,11 @@ export function useMonthlyOpening(monthIso: string) {
       for (const r of rules) {
         for (const d of expandRuleInRange(r, rangeFrom, rangeTo)) {
           if (realised.has(`${r.id}|${d}`)) continue
-          pendingSum += r.kind === 'income' ? r.amount : -r.amount
+          // Apply per-occurrence overrides so the rolled-forward opening agrees
+          // with the projection used by Ledger / ForecastLens / PlanLens.
+          const eff = effectiveOccurrenceAmount(r, d, overrides)
+          if (eff == null) continue // skipped via override
+          pendingSum += eff
         }
       }
       return {
