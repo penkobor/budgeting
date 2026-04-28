@@ -115,6 +115,20 @@ export function SharedLens() {
   const [transferN, setTransferN] = useState<number>(0)
   const [createDraft, setCreateDraft] = useState<CreateDraft | null>(null)
 
+  // Phase 5 — long-press picker mode for touch.
+  const [pickerSrc, setPickerSrc] = useState<Entry | null>(null)
+  const [pickerRowTarget, setPickerRowTarget] = useState<Entry | null>(null)
+
+  const enterPickerMode = useCallback((entry: Entry) => {
+    setPickerSrc(entry)
+    setPickerRowTarget(null)
+  }, [])
+
+  const cancelPicker = useCallback(() => {
+    setPickerSrc(null)
+    setPickerRowTarget(null)
+  }, [])
+
   const onDragStart = useCallback((entry: Entry) => {
     setDragSrc(entry)
     setDragTargetKey(null)
@@ -232,7 +246,8 @@ export function SharedLens() {
             </h2>
             <p className="text-xs text-fg-muted mt-1">
               Drag a row's amount onto another shared row (any month, same kind), onto a
-              recurring occurrence, or onto a "+ new shared event" tile.{' '}
+              recurring occurrence, or onto a "+ new shared event" tile. On touch devices
+              long-press a chip then tap a target.{' '}
               {shareLink ? (
                 <>
                   Public:{' '}
@@ -308,16 +323,24 @@ export function SharedLens() {
           {m.entries.length > 0 && (
             <ul className="divide-y divide-border -mx-4 md:-mx-5">
               {m.entries.map((e) => {
-                const isSrc = dragSrc?.key === e.key
-                const isHover = dragTargetKey === e.key && !isSrc
+                const isSrc = (dragSrc?.key === e.key) || (pickerSrc?.key === e.key)
+                const isHover = dragTargetKey === e.key && dragSrc?.key !== e.key
                 const validHere = !!dragSrc && isHover && isValidPair(dragSrc, e)
+                const pickerValid =
+                  !!pickerSrc && pickerSrc.key !== e.key && isValidPair(pickerSrc, e)
+                const pickerDimmed = !!pickerSrc && !pickerValid && pickerSrc.key !== e.key
                 return (
                   <li
                     key={e.key}
                     data-share-row={e.key}
+                    onClick={() => {
+                      if (pickerValid) setPickerRowTarget(e)
+                    }}
                     className={`px-4 md:px-5 py-2.5 flex items-baseline gap-3 text-sm transition-colors ${
                       validHere ? 'bg-accent/10' : ''
-                    } ${isHover && !validHere ? 'bg-negative/10' : ''}`}
+                    } ${isHover && !validHere ? 'bg-negative/10' : ''} ${
+                      pickerValid ? 'bg-accent/5 ring-1 ring-inset ring-accent/40 cursor-pointer' : ''
+                    } ${pickerDimmed ? 'opacity-40' : ''}`}
                   >
                     <span className="stat-num text-xs text-fg-subtle shrink-0 w-16">
                       {e.dateLabel}
@@ -339,9 +362,11 @@ export function SharedLens() {
                       entry={e}
                       currency={currency}
                       pending={redistribute.isPending && isSrc}
+                      disableDrag={!!pickerSrc}
                       onDragStart={() => onDragStart(e)}
                       onDrag={onDrag}
                       onDragEnd={onDragEnd}
+                      onLongPress={() => enterPickerMode(e)}
                     />
                   </li>
                 )
@@ -351,16 +376,35 @@ export function SharedLens() {
 
           <div
             data-share-dropzone={m.key}
+            onClick={() => {
+              if (!pickerSrc) return
+              const [yy, mm] = m.key.split('-').map(Number)
+              const firstOfMonth = new Date(yy, mm - 1, 1)
+              const today = new Date(horizon.today)
+              const seedDate = firstOfMonth >= today ? firstOfMonth : today
+              setCreateDraft({
+                src: pickerSrc,
+                ym: m.key,
+                amount: Math.abs(pickerSrc.amount),
+                occurredOn: isoDate(seedDate),
+                description: pickerSrc.label,
+              })
+              setPickerSrc(null)
+            }}
             className={`mt-1 rounded-xl border-2 border-dashed p-3 text-center text-xs transition-colors ${
               dragTargetKey === `dropzone:${m.key}`
                 ? 'border-accent bg-accent/10 text-accent'
-                : 'border-border text-fg-subtle hover:bg-bg-elev/40'
+                : pickerSrc
+                  ? 'border-accent/60 text-accent cursor-pointer hover:bg-accent/10'
+                  : 'border-border text-fg-subtle hover:bg-bg-elev/40'
             }`}
           >
             <Plus className="inline w-3.5 h-3.5 -mt-0.5 mr-1" />
-            {dragSrc
-              ? 'Drop here to create a new shared event'
-              : 'Drag a chip here to peel off a new shared event'}
+            {pickerSrc
+              ? 'Tap to create a new shared event here'
+              : dragSrc
+                ? 'Drop here to create a new shared event'
+                : 'Drag (or long-press) a chip and pick a target zone'}
           </div>
 
           {dragSrc && sliderMonthKey === m.key && (
@@ -375,6 +419,57 @@ export function SharedLens() {
           )}
         </section>
       ))}
+
+      {pickerSrc && (
+        <div className="fixed bottom-0 inset-x-0 z-40 bg-bg-elev/95 backdrop-blur border-t border-border p-3 flex items-center gap-3 shadow-lg">
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] uppercase tracking-wider text-fg-subtle">
+              Picking from
+            </div>
+            <div className="text-sm truncate">
+              {pickerSrc.label}{' '}
+              <span className="stat-num font-medium">
+                {pickerSrc.amount >= 0 ? '+' : '−'}
+                {formatMoney(Math.abs(pickerSrc.amount), currency)}
+              </span>
+            </div>
+            <div className="text-[11px] text-fg-subtle mt-0.5">
+              Tap a highlighted row or drop zone to receive
+            </div>
+          </div>
+          <button className="btn-ghost" onClick={cancelPicker}>
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {pickerSrc && pickerRowTarget && (
+        <TransferToRowModal
+          src={pickerSrc}
+          dst={pickerRowTarget}
+          currency={currency}
+          onCancel={() => setPickerRowTarget(null)}
+          onConfirm={async (n) => {
+            const max = Math.abs(pickerSrc.amount)
+            const safeN = Math.min(n, max)
+            const sign = pickerSrc.amount >= 0 ? 1 : -1
+            const newSrc = pickerSrc.amount + (-sign * safeN)
+            const newDst = pickerRowTarget.amount + (sign * safeN)
+            const payload = mergePayload(
+              deltaPayload(pickerSrc, newSrc),
+              deltaPayload(pickerRowTarget, newDst),
+            )
+            try {
+              await redistribute.mutateAsync(payload)
+              pushToast(`Moved ${formatMoney(safeN, currency)}`, 'success')
+              setPickerRowTarget(null)
+              setPickerSrc(null)
+            } catch (e) {
+              pushToast((e as Error).message, 'error')
+            }
+          }}
+        />
+      )}
 
       {quickAddOpen && (
         <QuickAddSharedModal
@@ -578,26 +673,63 @@ function DragChip(props: {
   entry: Entry
   currency: string
   pending: boolean
+  disableDrag?: boolean
   onDragStart: () => void
   onDrag: (e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => void
   onDragEnd: () => void
+  onLongPress: () => void
 }) {
-  const { entry, currency, pending, onDragStart, onDrag, onDragEnd } = props
+  const { entry, currency, pending, disableDrag, onDragStart, onDrag, onDragEnd, onLongPress } = props
   const ref = useRef<HTMLSpanElement | null>(null)
+  const longPressTimerRef = useRef<number | null>(null)
+  const longPressOriginRef = useRef<{ x: number; y: number } | null>(null)
+  const longPressFiredRef = useRef(false)
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimerRef.current != null) {
+      window.clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+    longPressOriginRef.current = null
+  }, [])
+
   return (
     <motion.span
       ref={ref}
-      drag="x"
+      drag={disableDrag ? false : 'x'}
       dragSnapToOrigin
       dragElastic={0.2}
-      onDragStart={onDragStart}
+      onPointerDown={(e) => {
+        longPressFiredRef.current = false
+        longPressOriginRef.current = { x: e.clientX, y: e.clientY }
+        cancelLongPress()
+        longPressTimerRef.current = window.setTimeout(() => {
+          longPressFiredRef.current = true
+          longPressTimerRef.current = null
+          onLongPress()
+        }, 500)
+      }}
+      onPointerMove={(e) => {
+        const o = longPressOriginRef.current
+        if (!o) return
+        const dx = e.clientX - o.x
+        const dy = e.clientY - o.y
+        if (dx * dx + dy * dy > 36) cancelLongPress()
+      }}
+      onPointerUp={cancelLongPress}
+      onPointerCancel={cancelLongPress}
+      onPointerLeave={cancelLongPress}
+      onDragStart={() => {
+        cancelLongPress()
+        if (!longPressFiredRef.current) onDragStart()
+      }}
       onDrag={onDrag}
       onDragEnd={onDragEnd}
       whileDrag={{ scale: 1.1, zIndex: 50 }}
       className={`stat-num font-medium shrink-0 select-none px-2 py-0.5 rounded-md cursor-grab active:cursor-grabbing bg-bg-elev hover:bg-bg-elev/80 ${
         entry.amount >= 0 ? 'text-positive' : 'text-negative'
       }`}
-      title="Drag onto another row or a + new shared event tile"
+      title="Drag onto another row — or long-press to enter pick-mode"
     >
       {pending ? (
         <Loader className="w-3.5 h-3.5 animate-spin inline" />
@@ -608,6 +740,85 @@ function DragChip(props: {
         </>
       )}
     </motion.span>
+  )
+}
+
+function TransferToRowModal(props: {
+  src: Entry
+  dst: Entry
+  currency: string
+  onCancel: () => void
+  onConfirm: (n: number) => Promise<void>
+}) {
+  const { src, dst, currency, onCancel, onConfirm } = props
+  const max = Math.abs(src.amount)
+  const [n, setN] = useState(Math.round(max / 2))
+  const [busy, setBusy] = useState(false)
+  const sign = src.amount >= 0 ? 1 : -1
+  const newSrc = src.amount + (-sign * n)
+  const newDst = dst.amount + (sign * n)
+  return (
+    <Modal
+      open
+      onOpenChange={(o) => !o && !busy && onCancel()}
+      title="Move shared amount"
+      description={`Pull from "${src.label}" into "${dst.label}".`}
+      footer={
+        <div className="flex justify-end gap-2">
+          <button className="btn-ghost" onClick={onCancel} disabled={busy}>
+            Cancel
+          </button>
+          <button
+            className="btn-primary"
+            disabled={busy || n <= 0 || n > max}
+            onClick={async () => {
+              setBusy(true)
+              try {
+                await onConfirm(n)
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            {busy ? <Loader className="w-4 h-4 animate-spin" /> : `Move ${formatMoney(n, currency)}`}
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <input
+            type="range"
+            min={0}
+            max={max}
+            step={Math.max(1, Math.round(max / 100))}
+            value={n}
+            onChange={(e) => setN(Number(e.target.value))}
+            className="flex-1 accent-accent"
+            autoFocus
+          />
+          <span className="stat-num font-medium tabular-nums text-fg shrink-0 min-w-20 text-right">
+            {formatMoney(n, currency)}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="rounded-lg bg-bg-elev p-2">
+            <div className="text-fg-subtle">{src.label} after</div>
+            <div className="stat-num font-medium">
+              {newSrc >= 0 ? '+' : '−'}
+              {formatMoney(Math.abs(newSrc), currency)}
+            </div>
+          </div>
+          <div className="rounded-lg bg-bg-elev p-2">
+            <div className="text-fg-subtle">{dst.label} after</div>
+            <div className="stat-num font-medium">
+              {newDst >= 0 ? '+' : '−'}
+              {formatMoney(Math.abs(newDst), currency)}
+            </div>
+          </div>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
