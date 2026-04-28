@@ -13,7 +13,6 @@ import {
   useSettings,
   useTransactionsInRange,
 } from '@/hooks/queries'
-import { useUi } from '@/store/ui'
 import { formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
@@ -49,7 +48,6 @@ function loadDrafts(): Draft[] {
  * end-of-horizon balance and what the lowest balance dip will be.
  */
 export function PlanLens() {
-  const currentSpaceId = useUi((s) => s.currentSpaceId)
   const today = useMemo(() => new Date(), [])
   const monthIso = monthKey(today)
 
@@ -217,21 +215,6 @@ export function PlanLens() {
     month: 'short',
     year: '2-digit',
   })
-
-  if (currentSpaceId !== null) {
-    return (
-      <div className="space-y-4 md:space-y-6">
-        <header>
-          <div className="label">Plan</div>
-          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">Big purchases</h1>
-        </header>
-        <div className="card p-6 text-sm text-fg-muted">
-          Big-purchase planning is anchored to your personal opening balance and forecast.
-          Switch back to Personal to sketch out future spends.
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-4 md:space-y-6">

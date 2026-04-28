@@ -1,7 +1,7 @@
 # BUDG-020 — FEAT | Shared Budget Spaces
 
-**Status:** Refinement done — ready for Plan detailing
-**Branch:** _not yet created_
+**Status:** **Superseded by [[BUDG-021]]** (2026-04-28) — see [[BUDG-020 - ADR-004 - Supersede Spaces with read-only public share page]]
+**Branch:** _superseded before merge_
 **Depends on:** existing transactions/categories/recurring engine ([[BUDG-001]]), monthly goal infra ([[BUDG-012]])
 
 ## Problem
@@ -36,9 +36,10 @@ See [[BUDG-020 - Plan]].
 - [[BUDG-020 - Plan]] — phased plan + checklists
 
 ### ADR
-- [[BUDG-020 - ADR-001 - Space as tag, not separate ledger]]
-- [[BUDG-020 - ADR-002 - Context switcher over separate routes]]
-- [[BUDG-020 - ADR-003 - No commitments or limits in MVP]]
+- [[BUDG-020 - ADR-004 - Supersede Spaces with read-only public share page]] — retire BUDG-020 in favour of [[BUDG-021]]
+- [[BUDG-020 - ADR-001 - Space as tag, not separate ledger]] — *superseded by ADR-004*
+- [[BUDG-020 - ADR-002 - Context switcher over separate routes]] — *superseded by ADR-004*
+- [[BUDG-020 - ADR-003 - No commitments or limits in MVP]] — *superseded by ADR-004*
 
 ### API
 - _(none yet)_

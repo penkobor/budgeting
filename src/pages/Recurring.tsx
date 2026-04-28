@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Share2 } from 'lucide-react'
 import {
   useCategories,
   useDeleteRule,
@@ -8,20 +8,15 @@ import {
   useUpsertRule,
 } from '@/hooks/queries'
 import { useSettings } from '@/hooks/queries'
-import { useSpace, useSpaceCategories, useSpaces } from '@/hooks/spaces'
-import { useUi } from '@/store/ui'
 import { Modal } from '@/components/ui/Modal'
 import { describeRule, expandRuleInRange } from '@/lib/recurring'
 import { formatMoney, isoDate } from '@/lib/utils'
 import type { RecurringRule } from '@/lib/db.types'
 
 export function RecurringPage() {
-  const currentSpaceId = useUi((s) => s.currentSpaceId)
-  const spaceOpts = currentSpaceId ? { spaceId: currentSpaceId } : undefined
-  const { data: rules = [] } = useRecurringRules(spaceOpts)
+  const { data: rules = [] } = useRecurringRules()
   const { data: settings } = useSettings()
   const { data: upcomingOverrides = [] } = useUpcomingRecurringOverrides()
-  const { data: space } = useSpace(currentSpaceId)
   const upsert = useUpsertRule()
   const del = useDeleteRule()
   const currency = settings?.currency ?? 'CZK'
@@ -71,12 +66,10 @@ export function RecurringPage() {
         <div className="min-w-0">
           <div className="label">Fixed payments</div>
           <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">
-            Recurring rules{currentSpaceId && space ? <span className="text-fg-muted"> · {space.name}</span> : null}
+            Recurring rules
           </h1>
           <p className="text-xs md:text-sm text-fg-muted mt-1.5 max-w-prose">
-            {currentSpaceId
-              ? `Shared rules for ${space?.name ?? 'this space'} — visible to every member and folded into the joint ledger automatically.`
-              : 'Templates for payments and income that repeat — rent, subscriptions, salary. They flow into your forecast and the running balance automatically.'}
+            Templates for payments and income that repeat — rent, subscriptions, salary. They flow into your forecast and the running balance automatically.
           </p>
         </div>
         <button onClick={() => setAdding(true)} className="btn-primary shrink-0"><Plus className="w-4 h-4" /> Add rule</button>
@@ -85,9 +78,7 @@ export function RecurringPage() {
       <div className="card divide-y divide-border">
         {rules.length === 0 && (
           <div className="p-8 text-center text-sm text-fg-muted">
-            {currentSpaceId
-              ? `No shared recurring rules in ${space?.name ?? 'this space'} yet. Add one to track joint subscriptions or repeating bills.`
-              : 'No recurring rules yet. Add one to auto-fill your monthly fixed payments.'}
+            No recurring rules yet. Add one to auto-fill your monthly fixed payments.
           </div>
         )}
         {rules.map((r) => {
@@ -105,6 +96,14 @@ export function RecurringPage() {
             <div className="min-w-0 flex-1">
               <div className="font-medium truncate flex items-center gap-2">
                 <span className="truncate">{r.name}</span>
+                {r.is_shared && (
+                  <span
+                    className="shrink-0 inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent"
+                    title="Visible on your public share page"
+                  >
+                    <Share2 className="w-2.5 h-2.5" /> shared
+                  </span>
+                )}
                 {trimInfo && (trimInfo.trimmed + trimInfo.skipped) > 0 && (
                   <span
                     className="shrink-0 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent"
@@ -165,7 +164,6 @@ export function RecurringPage() {
       {(adding || editing) && (
         <RuleForm
           rule={editing}
-          spaceId={currentSpaceId}
           open={adding || !!editing}
           onClose={() => { setAdding(false); setEditing(null) }}
         />
@@ -174,21 +172,9 @@ export function RecurringPage() {
   )
 }
 
-function RuleForm({ rule, spaceId, open, onClose }: { rule: RecurringRule | null; spaceId: string | null; open: boolean; onClose: () => void }) {
+function RuleForm({ rule, open, onClose }: { rule: RecurringRule | null; open: boolean; onClose: () => void }) {
   const upsert = useUpsertRule()
   const { data: personalCategories = [] } = useCategories()
-  const { data: mySpaces = [] } = useSpaces()
-
-  // Joint context (`spaceId` set) hard-pins the rule to that space — the
-  // toggle is hidden. In Personal context the user can flip the rule shared
-  // and pick a target space; this is also how a personal rule is promoted
-  // to shared (or a shared rule is demoted back to personal) in edit mode.
-  const [makeShared, setMakeShared] = useState<boolean>(!!rule?.space_id)
-  const [pickedSpaceId, setPickedSpaceId] = useState<string | null>(
-    rule?.space_id ?? (mySpaces.length === 1 ? mySpaces[0].id : null),
-  )
-  const targetSpaceId = spaceId ?? (makeShared ? pickedSpaceId : null)
-  const { data: spaceCategories = [] } = useSpaceCategories(targetSpaceId)
 
   const [name, setName] = useState(rule?.name ?? '')
   const [amount, setAmount] = useState(String(rule?.amount ?? ''))
@@ -198,10 +184,9 @@ function RuleForm({ rule, spaceId, open, onClose }: { rule: RecurringRule | null
   const [dayOfWeek, setDayOfWeek] = useState(String(rule?.day_of_week ?? 1))
   const [monthOfYear, setMonthOfYear] = useState(String(rule?.month_of_year ?? 1))
   const [intervalDays, setIntervalDays] = useState(String(rule?.interval_days ?? 7))
-  const [categoryId, setCategoryId] = useState(
-    (targetSpaceId ? rule?.space_category_id : rule?.category_id) ?? '',
-  )
+  const [categoryId, setCategoryId] = useState(rule?.category_id ?? '')
   const [startsOn, setStartsOn] = useState(rule?.starts_on ?? isoDate(new Date()))
+  const [isShared, setIsShared] = useState<boolean>(rule?.is_shared ?? false)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -217,20 +202,15 @@ function RuleForm({ rule, spaceId, open, onClose }: { rule: RecurringRule | null
       day_of_week: frequency === 'weekly' ? parseInt(dayOfWeek, 10) : null,
       month_of_year: frequency === 'yearly' ? parseInt(monthOfYear, 10) : null,
       interval_days: frequency === 'custom' ? parseInt(intervalDays, 10) : null,
-      // CHECK constraint: (space_id IS NULL) = (space_category_id IS NULL).
-      // category_id is mutually exclusive with the space columns.
-      category_id: targetSpaceId ? null : (categoryId || null),
-      space_id: targetSpaceId,
-      space_category_id: targetSpaceId ? (categoryId || null) : null,
+      category_id: categoryId || null,
       starts_on: startsOn,
       active: rule?.active ?? true,
+      is_shared: isShared,
     })
     onClose()
   }
 
-  const cats = targetSpaceId
-    ? spaceCategories
-    : personalCategories.filter((c) => c.kind === kind)
+  const cats = personalCategories.filter((c) => c.kind === kind)
 
   return (
     <Modal
@@ -332,52 +312,20 @@ function RuleForm({ rule, spaceId, open, onClose }: { rule: RecurringRule | null
           <input type="date" className="input stat-num" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} />
         </div>
 
-        {/* Make-this-shared toggle — only in Personal context with at least
-            one space. In Joint context the form is already pinned to the
-            current space (no toggle needed). Available in edit mode too,
-            so a personal rule can be promoted to shared (or demoted back). */}
-        {spaceId === null && mySpaces.length > 0 && (
-          <div className="rounded-xl border border-border p-3 space-y-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={makeShared}
-                onChange={(e) => {
-                  setMakeShared(e.target.checked)
-                  // Reset category when switching, since the option lists differ.
-                  setCategoryId('')
-                  if (e.target.checked && !pickedSpaceId && mySpaces[0]) {
-                    setPickedSpaceId(mySpaces[0].id)
-                  }
-                }}
-              />
-              <span className="text-sm font-medium">Make this shared</span>
-              <span className="text-[11px] text-fg-subtle">
-                rule and its instances visible to space members
-              </span>
-            </label>
-            {makeShared && (
-              <div className="flex flex-wrap gap-1.5">
-                {mySpaces.map((s) => {
-                  const active = pickedSpaceId === s.id
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => {
-                        setPickedSpaceId(s.id)
-                        setCategoryId('')
-                      }}
-                      className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${active ? 'bg-accent text-accent-fg border-accent' : 'border-border text-fg-muted hover:text-fg hover:border-border-strong'}`}
-                    >
-                      {s.name}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+        <label className="flex items-center gap-2.5 rounded-xl border border-border p-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isShared}
+            onChange={(e) => setIsShared(e.target.checked)}
+            className="w-4 h-4"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium">Show on my public share page</div>
+            <div className="text-[11px] text-fg-subtle">
+              All upcoming occurrences of this rule will appear in the public view.
+            </div>
           </div>
-        )}
+        </label>
       </form>
     </Modal>
   )

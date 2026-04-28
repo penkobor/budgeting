@@ -19,8 +19,6 @@ import {
   useTransactionsInRange,
   useUpsertTransaction,
 } from '@/hooks/queries'
-import { useSpace, useSpaceCategories, useSpaces } from '@/hooks/spaces'
-import { useUi } from '@/store/ui'
 import { isoDate } from '@/lib/utils'
 import {
   computeProjectedEndBalance,
@@ -37,11 +35,9 @@ interface Props {
   initialDate?: string
   initialAmount?: number
   initialDescription?: string
-  /** For personal tx: `category_id`. For shared tx: `space_category_id`. */
   initialCategoryId?: string | null
-  /** Set when editing a shared tx so the form opens pinned to that space. */
-  initialSpaceId?: string | null
   initialRecurringRuleId?: string | null
+  initialIsShared?: boolean
   editId?: string
 }
 
@@ -54,8 +50,8 @@ export function AddTransactionDialog({
   initialAmount,
   initialDescription,
   initialCategoryId,
-  initialSpaceId,
   initialRecurringRuleId,
+  initialIsShared,
   editId,
 }: Props) {
   const { data: categories } = useCategories()
@@ -63,25 +59,11 @@ export function AddTransactionDialog({
   const upsertTx = useUpsertTransaction()
   const applyRebalanceMutation = useApplyRebalance()
 
-  // ── Space context ──
-  const currentSpaceId = useUi((s) => s.currentSpaceId)
-  const { data: currentSpace } = useSpace(currentSpaceId)
-  const { data: mySpaces = [] } = useSpaces()
-  // Personal mode: "Make this shared" toggle. When ON, the user picks a target
-  // space and the form swaps category select to that space's space_categories.
-  // When editing an existing shared tx in Personal context, we seed both flags
-  // from `initialSpaceId` so the form opens already pinned to that space.
-  const [makeShared, setMakeShared] = useState<boolean>(!!initialSpaceId)
-  const [pickedSpaceId, setPickedSpaceId] = useState<string | null>(initialSpaceId ?? null)
-  // Active target space for the form. In Joint context = currentSpaceId.
-  // In Personal context with toggle ON = pickedSpaceId. Else null = personal.
-  const targetSpaceId = currentSpaceId ?? (makeShared ? pickedSpaceId : null)
-  const { data: targetSpaceCategories = [] } = useSpaceCategories(targetSpaceId)
-
   const [date, setDate] = useState(initialDate ?? isoDate(new Date()))
   const [amount, setAmount] = useState(String(initialAmount ?? ''))
   const [description, setDescription] = useState(initialDescription ?? '')
   const [categoryId, setCategoryId] = useState<string | ''>(initialCategoryId ?? '')
+  const [isShared, setIsShared] = useState<boolean>(initialIsShared ?? false)
   const [kind, setKind] = useState<'expense' | 'income'>(
     (initialAmount ?? -1) >= 0 ? 'income' : 'expense',
   )
@@ -125,6 +107,7 @@ export function AddTransactionDialog({
       setAmount(initialAmount !== undefined ? String(Math.abs(initialAmount)) : '')
       setDescription(initialDescription ?? '')
       setCategoryId(initialCategoryId ?? '')
+      setIsShared(initialIsShared ?? false)
       setKind((initialAmount ?? -1) >= 0 ? 'income' : 'expense')
       setStep('form')
       setPendingTx(null)
@@ -133,19 +116,9 @@ export function AddTransactionDialog({
       setSelected(new Set())
       setMode('even')
       setManualDeltas(new Map())
-      // Seed shared-toggle state. When editing an existing shared tx, default
-      // ON and pinned to that tx's space. Otherwise default OFF and pre-select
-      // the only space if the user belongs to exactly one (no-op picker).
-      if (initialSpaceId) {
-        setMakeShared(true)
-        setPickedSpaceId(initialSpaceId)
-      } else {
-        setMakeShared(false)
-        setPickedSpaceId(mySpaces.length === 1 ? mySpaces[0].id : null)
-      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialDate, initialAmount, initialDescription, initialCategoryId, initialSpaceId])
+  }, [open, initialDate, initialAmount, initialDescription, initialCategoryId, initialIsShared])
 
   const filteredCats = (categories ?? []).filter((c) => c.kind === kind)
 
@@ -184,18 +157,13 @@ export function AddTransactionDialog({
     const n = parseFloat(amount.replace(',', '.'))
     if (Number.isNaN(n) || n <= 0) return
     const signed = kind === 'income' ? Math.abs(n) : -Math.abs(n)
-    // CHECK constraint on transactions: (space_id IS NULL) = (space_category_id IS NULL).
-    // Either both null (personal) or both non-null (shared). category_id is the
-    // personal-only column; space_category_id is the shared one.
-    const isShared = targetSpaceId !== null
     const txPayload: TransactionInsert = {
       id: editId,
       occurred_on: date,
       amount: signed,
       description: description || null,
-      category_id: isShared ? null : (categoryId || null),
-      space_id: isShared ? targetSpaceId : null,
-      space_category_id: isShared ? (categoryId || null) : null,
+      category_id: categoryId || null,
+      is_shared: isShared,
       recurring_rule_id: initialRecurringRuleId ?? null,
       planned: true,
       confirmed_at: null,
@@ -205,7 +173,6 @@ export function AddTransactionDialog({
     if (
       kind === 'expense' &&
       !isEdit &&
-      !isShared &&
       goal &&
       date.startsWith(yearMonth)
     ) {
@@ -304,9 +271,7 @@ export function AddTransactionDialog({
     ? 'Rebalance to stay on track'
     : editId
       ? 'Edit transaction'
-      : currentSpaceId && currentSpace
-        ? `Add to ${currentSpace.name}`
-        : 'Add transaction'
+      : 'Add transaction'
   const applying = upsertTx.isPending || applyRebalanceMutation.isPending
 
   return (
@@ -428,66 +393,28 @@ export function AddTransactionDialog({
                 onChange={(e) => setCategoryId(e.target.value)}
               >
                 <option value="">— uncategorised —</option>
-                {targetSpaceId
-                  ? targetSpaceCategories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))
-                  : filteredCats.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
+                {filteredCats.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
               </select>
             </div>
 
-            {/* Make-this-shared toggle — only in Personal context with at least
-                one space. In Joint context the dialog is already pinned to the
-                current space (no toggle needed). Available in edit mode too,
-                so a personal tx can be promoted to a space (or demoted back). */}
-            {currentSpaceId === null && mySpaces.length > 0 && (
-              <div className="rounded-xl border border-border p-3 space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={makeShared}
-                    onChange={(e) => {
-                      setMakeShared(e.target.checked)
-                      // Reset category when switching, since the option lists differ.
-                      setCategoryId('')
-                      if (e.target.checked && !pickedSpaceId && mySpaces[0]) {
-                        setPickedSpaceId(mySpaces[0].id)
-                      }
-                    }}
-                  />
-                  <span className="text-sm font-medium">Make this shared</span>
-                  <span className="text-[11px] text-fg-subtle">
-                    visible to space members
-                  </span>
-                </label>
-                {makeShared && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {mySpaces.map((s) => {
-                      const active = pickedSpaceId === s.id
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => {
-                            setPickedSpaceId(s.id)
-                            setCategoryId('')
-                          }}
-                          className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${active ? 'bg-accent text-accent-fg border-accent' : 'border-border text-fg-muted hover:text-fg hover:border-border-strong'}`}
-                        >
-                          {s.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
+            <label className="flex items-center gap-2.5 rounded-xl border border-border p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isShared}
+                onChange={(e) => setIsShared(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium">Show on my public share page</div>
+                <div className="text-[11px] text-fg-subtle">
+                  Anyone with your share link can see this entry. Toggle in Settings.
+                </div>
               </div>
-            )}
+            </label>
           </motion.form>
         )}
       </AnimatePresence>

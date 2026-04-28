@@ -2,7 +2,7 @@
 
 *Part of [[BUDG-020]]*
 
-**Status:** Accepted (2026-04-27)
+**Status:** Accepted (2026-04-27) — **Superseded by [[BUDG-020 - ADR-004 - Supersede Spaces with read-only public share page]]** (2026-04-28)
 **Date:** 2026-04-27
 
 ## Context

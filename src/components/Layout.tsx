@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils'
 import { useState } from 'react'
 import { AddTransactionDialog } from './AddTransactionDialog'
 import { CommandPalette } from './CommandPalette'
-import { ContextSwitcher } from './ContextSwitcher'
 import { useEffect } from 'react'
 
 const nav = [
@@ -52,9 +51,6 @@ export function Layout() {
             <div className="font-semibold leading-tight">Budget</div>
             <div className="text-[11px] text-fg-subtle leading-tight">plan · track · profit</div>
           </div>
-        </div>
-        <div className="px-3 pb-2">
-          <ContextSwitcher variant="sidebar" />
         </div>
         <nav className="px-3 py-2 flex-1">
           {nav.map(({ to, label, icon: Icon, end }) => (
@@ -136,13 +132,8 @@ export function Layout() {
         <Plus className="w-6 h-6" />
       </button>
 
-      {/* Main — page content. On mobile we mount an inline ContextSwitcher
-          at the very top so it scrolls with content (Concept A) instead of
-          floating fixed and fighting page-level sticky strips. */}
+      {/* Main — page content. */}
       <main className="flex-1 min-w-0 pt-[max(env(safe-area-inset-top),12px)] pb-[calc(5rem+env(safe-area-inset-bottom))] md:pt-0 md:pb-0">
-        <div className="md:hidden px-4 pt-1 pb-2 flex justify-end">
-          <ContextSwitcher variant="header" />
-        </div>
         <Outlet />
       </main>
 

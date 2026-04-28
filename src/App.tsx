@@ -7,8 +7,7 @@ import { RecurringPage } from '@/pages/Recurring'
 import { CategoriesPage } from '@/pages/Categories'
 import { AssetsPage } from '@/pages/Assets'
 import { SettingsPage } from '@/pages/Settings'
-import { SpaceDetailPage } from '@/pages/SpaceDetail'
-import { InviteAcceptPage } from '@/pages/InviteAccept'
+import { PublicSharePage } from '@/pages/PublicShare'
 import { AuthPage } from '@/pages/AuthPage'
 import { useAuth } from '@/hooks/useAuth'
 import { Loader2 } from 'lucide-react'
@@ -39,10 +38,22 @@ function Gate() {
         <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/assets" element={<AssetsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/spaces/:id" element={<SpaceDetailPage />} />
-        <Route path="/invite/:token" element={<InviteAcceptPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
+    </Routes>
+  )
+}
+
+/**
+ * Top-level router: the public share route lives OUTSIDE the auth gate so
+ * unauthenticated visitors can view a published page. Everything else flows
+ * through `Gate` which redirects to AuthPage when no session exists.
+ */
+function TopRoutes() {
+  return (
+    <Routes>
+      <Route path="/share/:slug" element={<PublicSharePage />} />
+      <Route path="*" element={<Gate />} />
     </Routes>
   )
 }
@@ -51,7 +62,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <HashRouter>
-        <Gate />
+        <TopRoutes />
       </HashRouter>
       <ToastHost />
     </QueryClientProvider>

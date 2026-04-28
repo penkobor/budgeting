@@ -6,7 +6,6 @@ import type {
   CategoryInsert,
   RecurringRule,
   RecurringRuleInsert,
-  SpaceCategory,
   Transaction,
   TransactionInsert,
   MonthlyOpening,
@@ -59,22 +58,11 @@ export function useDeleteCategory() {
 }
 
 // ---------- Recurring rules ----------
-/**
- * Recurring rules query.
- * - No opts (legacy): personal-only (`space_id IS NULL`).
- * - `{ spaceId: '<uuid>' }`: rules of that space (RLS scoped to members).
- * - `{ spaceId: null }`: explicit personal-only.
- */
-export function useRecurringRules(opts?: { spaceId?: string | null }) {
-  const spaceId = opts?.spaceId ?? null
-  const scope = opts === undefined || spaceId === null ? 'personal' : spaceId
+export function useRecurringRules() {
   return useQuery({
-    queryKey: ['recurring_rules', { spaceId: scope }],
+    queryKey: ['recurring_rules'],
     queryFn: async () => {
-      let q = supabase.from('recurring_rules').select('*').order('name')
-      if (spaceId) q = q.eq('space_id', spaceId)
-      else q = q.is('space_id', null)
-      const { data, error } = await q
+      const { data, error } = await supabase.from('recurring_rules').select('*').order('name')
       if (error) throw error
       return data as RecurringRule[]
     },
@@ -108,49 +96,17 @@ export function useDeleteRule() {
 }
 
 // ---------- Transactions ----------
-/**
- * Transactions query.
- * - No opts (legacy): own personal tx only (`space_id IS NULL`, RLS already
- *   restricts to current user).
- * - `{ spaceId: '<uuid>' }`: shared tx of that space (any member, via RLS).
- * - `{ spaceId: null }`: explicit personal-only.
- * - `{ includeOwnShared: true }`: own personal + own shared. Used by the
- *   personal Ledger which renders shared rows inline with a Space badge.
- */
-export function useTransactionsInRange(
-  fromIso: string,
-  toIso: string,
-  opts?: { spaceId?: string | null; includeOwnShared?: boolean },
-) {
-  const spaceId = opts?.spaceId ?? null
-  const includeOwnShared = opts?.includeOwnShared ?? false
-  const scope =
-    opts === undefined
-      ? 'personal'
-      : spaceId
-        ? `space:${spaceId}`
-        : includeOwnShared
-          ? 'own-all'
-          : 'personal'
+export function useTransactionsInRange(fromIso: string, toIso: string) {
   return useQuery({
-    queryKey: ['transactions', fromIso, toIso, { scope }],
+    queryKey: ['transactions', fromIso, toIso],
     queryFn: async () => {
-      let q = supabase
+      const { data, error } = await supabase
         .from('transactions')
         .select('*')
         .gte('occurred_on', fromIso)
         .lte('occurred_on', toIso)
         .order('occurred_on')
         .order('created_at')
-      if (spaceId) {
-        q = q.eq('space_id', spaceId)
-      } else if (includeOwnShared) {
-        const { data: u } = await supabase.auth.getUser()
-        if (u.user) q = q.eq('user_id', u.user.id)
-      } else {
-        q = q.is('space_id', null)
-      }
-      const { data, error } = await q
       if (error) throw error
       return data as Transaction[]
     },
@@ -220,13 +176,11 @@ export function useMonthlyOpening(monthIso: string) {
         supabase
           .from('transactions')
           .select('amount,occurred_on,recurring_rule_id')
-          .is('space_id', null)
           .gte('occurred_on', anchor.month)
           .lt('occurred_on', monthIso),
         supabase
           .from('recurring_rules')
-          .select('*')
-          .is('space_id', null),
+          .select('*'),
       ])
       if (txsRes.error) throw txsRes.error
       if (rulesRes.error) throw rulesRes.error
@@ -412,22 +366,6 @@ export function useApplyRebalance() {
 }
 
 // ---------- Settings ----------
-/**
- * All `space_categories` rows visible to the current user via RLS
- * (i.e. categories of every space the user is a member of). Used by the
- * personal Ledger to colour the Space badge on own-shared rows.
- */
-export function useAllSpaceCategoriesForMe() {
-  return useQuery({
-    queryKey: ['space_categories', 'all-mine'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('space_categories').select('*')
-      if (error) throw error
-      return data as SpaceCategory[]
-    },
-  })
-}
-
 export function useSettings() {
   return useQuery({
     queryKey: ['settings'],

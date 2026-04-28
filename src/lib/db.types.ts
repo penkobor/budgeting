@@ -184,12 +184,11 @@ export type Database = {
           frequency: string
           id: string
           interval_days: number | null
+          is_shared: boolean
           kind: string
           month_of_year: number | null
           name: string
           notes: string | null
-          space_category_id: string | null
-          space_id: string | null
           starts_on: string
           user_id: string
         }
@@ -204,12 +203,11 @@ export type Database = {
           frequency: string
           id?: string
           interval_days?: number | null
+          is_shared?: boolean
           kind?: string
           month_of_year?: number | null
           name: string
           notes?: string | null
-          space_category_id?: string | null
-          space_id?: string | null
           starts_on: string
           user_id?: string
         }
@@ -224,12 +222,11 @@ export type Database = {
           frequency?: string
           id?: string
           interval_days?: number | null
+          is_shared?: boolean
           kind?: string
           month_of_year?: number | null
           name?: string
           notes?: string | null
-          space_category_id?: string | null
-          space_id?: string | null
           starts_on?: string
           user_id?: string
         }
@@ -239,20 +236,6 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "recurring_rules_space_category_id_fkey"
-            columns: ["space_category_id"]
-            isOneToOne: false
-            referencedRelation: "space_categories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "recurring_rules_space_id_fkey"
-            columns: ["space_id"]
-            isOneToOne: false
-            referencedRelation: "spaces"
             referencedColumns: ["id"]
           },
         ]
@@ -281,138 +264,27 @@ export type Database = {
         }
         Relationships: []
       }
-      space_categories: {
-        Row: {
-          color: string
-          created_at: string
-          icon: string | null
-          id: string
-          name: string
-          sort_order: number
-          space_id: string
-        }
-        Insert: {
-          color?: string
-          created_at?: string
-          icon?: string | null
-          id?: string
-          name: string
-          sort_order?: number
-          space_id: string
-        }
-        Update: {
-          color?: string
-          created_at?: string
-          icon?: string | null
-          id?: string
-          name?: string
-          sort_order?: number
-          space_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "space_categories_space_id_fkey"
-            columns: ["space_id"]
-            isOneToOne: false
-            referencedRelation: "spaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      space_invites: {
+      share_links: {
         Row: {
           created_at: string
-          created_by: string
-          expires_at: string
-          id: string
-          space_id: string
-          token: string
-          used_at: string | null
-          used_by_user_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string
-          expires_at: string
-          id?: string
-          space_id: string
-          token: string
-          used_at?: string | null
-          used_by_user_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          expires_at?: string
-          id?: string
-          space_id?: string
-          token?: string
-          used_at?: string | null
-          used_by_user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "space_invites_space_id_fkey"
-            columns: ["space_id"]
-            isOneToOne: false
-            referencedRelation: "spaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      space_members: {
-        Row: {
-          joined_at: string
-          role: string
-          space_id: string
-          user_id: string
-        }
-        Insert: {
-          joined_at?: string
-          role?: string
-          space_id: string
-          user_id: string
-        }
-        Update: {
-          joined_at?: string
-          role?: string
-          space_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "space_members_space_id_fkey"
-            columns: ["space_id"]
-            isOneToOne: false
-            referencedRelation: "spaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      spaces: {
-        Row: {
-          created_at: string
-          currency: string
-          id: string
-          name: string
-          owner_user_id: string
+          display_name: string
+          slug: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           created_at?: string
-          currency?: string
-          id?: string
-          name: string
-          owner_user_id?: string
+          display_name: string
+          slug: string
           updated_at?: string
+          user_id: string
         }
         Update: {
           created_at?: string
-          currency?: string
-          id?: string
-          name?: string
-          owner_user_id?: string
+          display_name?: string
+          slug?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -424,11 +296,10 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          is_shared: boolean
           occurred_on: string
           planned: boolean
           recurring_rule_id: string | null
-          space_category_id: string | null
-          space_id: string | null
           user_id: string
         }
         Insert: {
@@ -438,11 +309,10 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_shared?: boolean
           occurred_on: string
           planned?: boolean
           recurring_rule_id?: string | null
-          space_category_id?: string | null
-          space_id?: string | null
           user_id?: string
         }
         Update: {
@@ -452,11 +322,10 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_shared?: boolean
           occurred_on?: string
           planned?: boolean
           recurring_rule_id?: string | null
-          space_category_id?: string | null
-          space_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -472,20 +341,6 @@ export type Database = {
             columns: ["recurring_rule_id"]
             isOneToOne: false
             referencedRelation: "recurring_rules"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "transactions_space_category_id_fkey"
-            columns: ["space_category_id"]
-            isOneToOne: false
-            referencedRelation: "space_categories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "transactions_space_id_fkey"
-            columns: ["space_id"]
-            isOneToOne: false
-            referencedRelation: "spaces"
             referencedColumns: ["id"]
           },
         ]
@@ -504,11 +359,10 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          is_shared: boolean
           occurred_on: string
           planned: boolean
           recurring_rule_id: string | null
-          space_category_id: string | null
-          space_id: string | null
           user_id: string
         }
         SetofOptions: {
@@ -518,31 +372,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      consume_space_invite: {
-        Args: { p_token: string }
-        Returns: {
-          created_at: string
-          currency: string
-          id: string
-          name: string
-          owner_user_id: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "spaces"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      get_space_member_profiles: {
-        Args: { p_space_id: string }
-        Returns: {
-          email: string
-          user_id: string
-        }[]
-      }
-      my_space_ids: { Args: never; Returns: string[] }
+      get_public_share: { Args: { p_slug: string }; Returns: Json }
     }
     Enums: {
       asset_type: "gold" | "stocks" | "crypto" | "cash" | "other"
@@ -678,7 +508,6 @@ export const Constants = {
   },
 } as const
 
-
 // Convenience aliases (manually maintained alongside generated Database type)
 export type Category = Database['public']['Tables']['categories']['Row']
 export type CategoryInsert = Database['public']['Tables']['categories']['Insert']
@@ -696,12 +525,6 @@ export type Asset = Database['public']['Tables']['assets']['Row']
 export type AssetInsert = Database['public']['Tables']['assets']['Insert']
 export type AssetType = Database['public']['Enums']['asset_type']
 
-// BUDG-020 — Spaces
-export type Space = Database['public']['Tables']['spaces']['Row']
-export type SpaceInsert = Database['public']['Tables']['spaces']['Insert']
-export type SpaceMember = Database['public']['Tables']['space_members']['Row']
-export type SpaceMemberInsert = Database['public']['Tables']['space_members']['Insert']
-export type SpaceCategory = Database['public']['Tables']['space_categories']['Row']
-export type SpaceCategoryInsert = Database['public']['Tables']['space_categories']['Insert']
-export type SpaceInvite = Database['public']['Tables']['space_invites']['Row']
-export type SpaceInviteInsert = Database['public']['Tables']['space_invites']['Insert']
+// BUDG-021 — Share links
+export type ShareLink = Database['public']['Tables']['share_links']['Row']
+export type ShareLinkInsert = Database['public']['Tables']['share_links']['Insert']

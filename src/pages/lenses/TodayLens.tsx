@@ -19,8 +19,6 @@ import {
   useSettings,
   useTransactionsInRange,
 } from '@/hooks/queries'
-import { useSpaceCategories } from '@/hooks/spaces'
-import { useUi } from '@/store/ui'
 import { formatMoney, isoDate, monthKey, daysInMonth } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
@@ -40,8 +38,6 @@ function addDays(d: Date, n: number) {
  * matching the Ledger.
  */
 export function TodayLens() {
-  const currentSpaceId = useUi((s) => s.currentSpaceId)
-  const spaceOpts = currentSpaceId ? { spaceId: currentSpaceId } : undefined
   const [dayOffset, setDayOffset] = useState(0)
   const today = useMemo(() => new Date(), [])
   const viewed = useMemo(() => addDays(today, dayOffset), [today, dayOffset])
@@ -52,18 +48,17 @@ export function TodayLens() {
 
   const { data: settings } = useSettings()
   const { data: opening } = useMonthlyOpening(monthIso)
-  const { data: txs = [] } = useTransactionsInRange(monthIso, toIso, spaceOpts)
-  const { data: rules = [] } = useRecurringRules(spaceOpts)
+  const { data: txs = [] } = useTransactionsInRange(monthIso, toIso)
+  const { data: rules = [] } = useRecurringRules()
   const { data: overrides = [] } = useRecurringOverridesInRange(monthIso, toIso)
   const { data: personalCategories = [] } = useCategories()
-  const { data: spaceCategories = [] } = useSpaceCategories(currentSpaceId)
-  const categories = currentSpaceId ? spaceCategories : personalCategories
+  const categories = personalCategories
   const { data: assets = [] } = useAssets()
   const deleteTx = useDeleteTransaction()
   const currency = settings?.currency ?? 'CZK'
   const assetBoost = useMemo(
-    () => (currentSpaceId ? 0 : assets.reduce((s, a) => s + (a.include_in_balance ? Number(a.value) : 0), 0)),
-    [assets, currentSpaceId],
+    () => assets.reduce((s, a) => s + (a.include_in_balance ? Number(a.value) : 0), 0),
+    [assets],
   )
   const catMap = useMemo(
     () => Object.fromEntries(categories.map((c) => [c.id, c])),
@@ -105,12 +100,12 @@ export function TodayLens() {
           originalAmount: original,
           overridden: Math.abs(eff - original) > 0.005,
           description: r.name,
-          categoryId: currentSpaceId ? r.space_category_id : r.category_id,
+          categoryId: r.category_id,
         })
       }
     }
     return out
-  }, [rules, overrides, txs, viewedIso, currentSpaceId])
+  }, [rules, overrides, txs, viewedIso])
 
   const dayExpense = useMemo(() => {
     let sum = 0
@@ -127,7 +122,7 @@ export function TodayLens() {
   }, [dayTxs, dayRuleHits])
 
   const balance = useMemo(() => {
-    const opening0 = currentSpaceId ? 0 : opening?.opening_balance ?? 0
+    const opening0 = opening?.opening_balance ?? 0
     let running = opening0
     const cutoffDay = viewed.getDate()
     const realisedKeys = new Set(
@@ -149,7 +144,7 @@ export function TodayLens() {
       }
     }
     return running
-  }, [txs, rules, overrides, opening, monthIso, viewed, currentSpaceId])
+  }, [txs, rules, overrides, opening, monthIso, viewed])
 
   type Item =
     | {
@@ -173,7 +168,7 @@ export function TodayLens() {
   const items = useMemo<Item[]>(() => {
     const out: Item[] = [
       ...dayTxs.map<Item>((t) => {
-        const catId = currentSpaceId ? t.space_category_id : t.category_id
+        const catId = t.category_id
         return {
           key: `tx-${t.id}`,
           amount: Number(t.amount),
@@ -416,8 +411,7 @@ export function TodayLens() {
         initialDate={editingTx?.occurred_on}
         initialAmount={editingTx ? Number(editingTx.amount) : undefined}
         initialDescription={editingTx?.description ?? undefined}
-        initialCategoryId={editingTx?.space_category_id ?? editingTx?.category_id ?? null}
-        initialSpaceId={editingTx?.space_id ?? null}
+        initialCategoryId={editingTx?.category_id ?? null}
         editId={editingTx?.id}
       />
       <AddTransactionDialog

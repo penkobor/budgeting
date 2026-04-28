@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Beer, ChevronRight, ListChecks, Pencil, Square, SquareCheckBig, Trash2, X } from 'lucide-react'
 import {
-  useAllSpaceCategoriesForMe,
   useCategories, useDeleteTransaction, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules,
   useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
-import { useSpaceCategories, useSpaceMemberProfiles, useSpaces } from '@/hooks/spaces'
-import { useUi } from '@/store/ui'
 import { daysInMonth, formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
@@ -15,8 +12,6 @@ import { Modal } from '@/components/ui/Modal'
 import type { Transaction } from '@/lib/db.types'
 
 export function Ledger() {
-  const currentSpaceId = useUi((s) => s.currentSpaceId)
-  const setCurrentSpaceId = useUi((s) => s.setCurrentSpaceId)
   const today = new Date()
   const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
   const monthIso = monthKey(cursor)
@@ -24,56 +19,21 @@ export function Ledger() {
   const fromIso = monthIso
   const toIso = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
-  const txOpts = currentSpaceId
-    ? { spaceId: currentSpaceId }
-    : { includeOwnShared: true }
-  const ruleOpts = currentSpaceId ? { spaceId: currentSpaceId } : undefined
-
   const { data: settings } = useSettings()
   const { data: opening } = useMonthlyOpening(monthIso)
-  const { data: txs = [] } = useTransactionsInRange(fromIso, toIso, txOpts)
-  const { data: rules = [] } = useRecurringRules(ruleOpts)
+  const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
+  const { data: rules = [] } = useRecurringRules()
   const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
   const { data: personalCategories = [] } = useCategories()
-  const { data: spaceCategoriesJoint = [] } = useSpaceCategories(currentSpaceId)
-  const { data: allSpaceCategoriesForMe = [] } = useAllSpaceCategoriesForMe()
-  const { data: spaces = [] } = useSpaces()
-  const { data: memberProfiles = [] } = useSpaceMemberProfiles(currentSpaceId)
   const deleteTx = useDeleteTransaction()
 
   const currency = settings?.currency ?? 'CZK'
-  // catMap is the active category map for THIS context's headline column
-  // (joint -> space_categories of the current space; personal -> own categories).
   const catMap = useMemo(
-    () =>
-      Object.fromEntries(
-        (currentSpaceId ? spaceCategoriesJoint : personalCategories).map((c) => [c.id, c]),
-      ),
-    [currentSpaceId, spaceCategoriesJoint, personalCategories],
-  )
-  // For personal-context shared rows we colour by the row's space_category_id
-  // — these come from any space the user is a member of.
-  const allSpaceCatMap = useMemo(
-    () => Object.fromEntries(allSpaceCategoriesForMe.map((c) => [c.id, c])),
-    [allSpaceCategoriesForMe],
-  )
-  const spaceMap = useMemo(
-    () => Object.fromEntries(spaces.map((s) => [s.id, s])),
-    [spaces],
-  )
-  const memberMap = useMemo(
-    () => Object.fromEntries(memberProfiles.map((m) => [m.user_id, m])),
-    [memberProfiles],
+    () => Object.fromEntries(personalCategories.map((c) => [c.id, c])),
+    [personalCategories],
   )
 
-  // Resolve the visible category for a transaction — personal txs use
-  // category_id; shared txs (own-shared in personal context, or any in joint)
-  // use space_category_id. Returns { id, name, color } or null if unset.
   const txCat = (t: Transaction) => {
-    if (t.space_id) {
-      const c = t.space_category_id ? allSpaceCatMap[t.space_category_id] : undefined
-      return c ? { id: c.id, name: c.name, color: c.color } : null
-    }
     const c = t.category_id ? catMap[t.category_id] : undefined
     return c ? { id: c.id, name: c.name, color: c.color } : null
   }
@@ -111,12 +71,12 @@ export function Ledger() {
           originalAmount: original,
           overridden: Math.abs(eff - original) > 0.005,
           description: r.name,
-          categoryId: currentSpaceId ? r.space_category_id : r.category_id,
+          categoryId: r.category_id,
         })
       }
     }
     return map
-  }, [rules, overrides, txs, fromIso, toIso, currentSpaceId])
+  }, [rules, overrides, txs, fromIso, toIso])
 
   // Build rows with running balance — we no longer track actual-vs-planned;
   // every transaction is a single 'plan' entry. Pending rule instances still
@@ -124,7 +84,7 @@ export function Ledger() {
   // are surfaced in the expanded row as editable templated entries (editing
   // creates a per-day override without touching the rule itself).
   const rows = useMemo(() => {
-    const opening0 = currentSpaceId ? 0 : opening?.opening_balance ?? 0
+    const opening0 = opening?.opening_balance ?? 0
     const arr: Array<{
       day: number;
       date: string;
@@ -163,7 +123,7 @@ export function Ledger() {
       })
     }
     return arr
-  }, [byDay, pendingByDay, opening, cursor, lastDay, currentSpaceId])
+  }, [byDay, pendingByDay, opening, cursor, lastDay])
 
   const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
@@ -272,11 +232,11 @@ export function Ledger() {
         name:
           id === '__uncat__'
             ? 'Uncategorised'
-            : catMap[id]?.name ?? allSpaceCatMap[id]?.name ?? 'Unknown',
+            : catMap[id]?.name ?? 'Unknown',
         color:
           id === '__uncat__'
             ? null
-            : catMap[id]?.color ?? allSpaceCatMap[id]?.color ?? null,
+            : catMap[id]?.color ?? null,
         amount,
       }))
       .sort((a, b) => b.amount - a.amount)
@@ -289,7 +249,7 @@ export function Ledger() {
       net: income - expense,
       categories,
     }
-  }, [rows, selectedDays, catMap, allSpaceCatMap])
+  }, [rows, selectedDays, catMap])
 
   // Auto-scroll today's row into view when on the current month
   const todayRowRef = useRef<HTMLDivElement | null>(null)
@@ -302,10 +262,6 @@ export function Ledger() {
     return () => window.clearTimeout(id)
   }, [sameMonthAsToday, monthIso])
 
-  // In a Joint context with no shared activity yet, a generic 31-day grid
-  // looks like noise. Show a friendly hint pointing at how shared works.
-  const jointEmpty =
-    !!currentSpaceId && txs.length === 0 && rules.length === 0
 
   return (
     <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto pb-32">
@@ -314,17 +270,6 @@ export function Ledger() {
         <div className="label">Ledger</div>
         <h1 className="text-xl md:text-3xl font-semibold mt-0.5">{monthLabel}</h1>
       </div>
-
-      {jointEmpty && (
-        <div className="card p-4 md:p-5 text-sm text-fg-muted">
-          <div className="font-medium text-fg mb-1">No shared activity yet</div>
-          <p>
-            Tag any transaction or recurring rule with this space (use the
-            <span className="px-1 font-medium">Make this shared</span>
-            toggle from quick-add) — it will appear here for every member.
-          </p>
-        </div>
-      )}
 
       {/* Floating glass pill toolbar — sticky relative to the page wrapper so
           it stays pinned for the whole scroll range, not just while the title
@@ -486,39 +431,20 @@ export function Ledger() {
                 )}
                 {row.txs.map((t) => {
                   const cat = txCat(t)
-                  const space = t.space_id ? spaceMap[t.space_id] : null
-                  const spaceCat = t.space_id && t.space_category_id ? allSpaceCatMap[t.space_category_id] : null
-                  const author = currentSpaceId && t.user_id ? memberMap[t.user_id] : null
-                  const authorEmail = author?.email ?? null
-                  const authorInitial = (authorEmail ?? '?').slice(0, 1).toUpperCase()
                   return (
                   <div key={t.id} className="group flex items-center gap-2 text-sm min-w-0">
-                    {currentSpaceId && (
-                      <span
-                        className="shrink-0 w-5 h-5 rounded-full grid place-items-center text-[10px] font-semibold bg-bg-elev text-fg-muted"
-                        title={authorEmail ?? 'Unknown member'}
-                      >
-                        {authorInitial}
-                      </span>
-                    )}
                     <span
                       className="w-1.5 h-1.5 rounded-full shrink-0"
                       style={{ background: cat?.color ?? '#888' }}
                     />
                     <span className="truncate text-fg">{txDescription(t)}</span>
-                    {!currentSpaceId && t.space_id && space && (
-                      <button
-                        type="button"
-                        onClick={() => setCurrentSpaceId(t.space_id)}
-                        className="shrink-0 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full hover:opacity-80 transition-opacity"
-                        style={{
-                          background: (spaceCat?.color ?? 'rgb(var(--accent))') + '22',
-                          color: spaceCat?.color ?? 'rgb(var(--accent))',
-                        }}
-                        title={`${spaceCat?.name ?? 'Shared'} · ${space.name} — click to switch context`}
+                    {t.is_shared && (
+                      <span
+                        className="shrink-0 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent"
+                        title="Visible on your public share page"
                       >
-                        {spaceCat?.name ?? 'Shared'} · {space.name}
-                      </button>
+                        shared
+                      </span>
                     )}
                     <span className={`stat-num text-xs ml-1 ${Number(t.amount) >= 0 ? 'text-positive' : 'text-negative'}`}>
                       {formatMoney(Number(t.amount), currency)}
@@ -608,8 +534,8 @@ export function Ledger() {
           initialDate={editing.occurred_on}
           initialAmount={Number(editing.amount)}
           initialDescription={editing.description ?? ''}
-          initialCategoryId={editing.space_category_id ?? editing.category_id}
-          initialSpaceId={editing.space_id}
+          initialCategoryId={editing.category_id}
+          initialIsShared={editing.is_shared}
           initialRecurringRuleId={editing.recurring_rule_id ?? null}
         />
       )}
