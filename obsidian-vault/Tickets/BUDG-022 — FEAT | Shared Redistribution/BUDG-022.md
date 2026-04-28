@@ -60,6 +60,7 @@ flowchart LR
 
 - [[BUDG-022 - 2026-04-28 - phase1-shared-lens-scaffold|2026-04-28 — Phase 1: read-only Shared Lens scaffold landed]]
 - [[BUDG-022 - 2026-04-28 - phase2-dnd-same-month|2026-04-28 — Phase 2: same-month DnD redistribute + new RPC (ADR-004 supersedes ADR-003)]]
+- [[BUDG-022 - 2026-04-28 - phase3-cross-month-and-dropzones|2026-04-28 — Phase 3: cross-month + drop-on-empty-zone "+ new shared event"]]
 
 ## Related
 
