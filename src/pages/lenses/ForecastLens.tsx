@@ -45,10 +45,10 @@ export function ForecastLens() {
   )
 
   // Build month-by-month projection. Data points are placed on the 1st of
-  // each month and represent the running balance AT THE START of that day,
-  // so they line up with what Ledger shows on day 1 of that month.
-  // For horizon = N we emit N+1 points: today's month-start (opening) and
-  // then one point per following month boundary.
+  // each month and represent the running balance at the END of that day —
+  // i.e. AFTER any transactions and recurring occurrences that land on the
+  // 1st have been applied. That makes them line up with what Ledger shows
+  // on day 1 of the same month.
   const series = useMemo(() => {
     const out: Array<{
       label: string; iso: string;
@@ -61,25 +61,58 @@ export function ForecastLens() {
     const labelFor = (d: Date) =>
       d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 
-    // Leading point — 1st of current month, opening balance.
-    out.push({
-      label: labelFor(horizonStart),
-      iso: horizonStart.toISOString().slice(0, 10),
-      baselineBalance: Math.round(baseline),
-      scenarioBalance: Math.round(scenario),
-      monthlyIncome: 0,
-      monthlyExpense: 0,
-    })
-
-    // Pre-bucket transactions by YYYY-MM and a Set of realised rule|date
-    // pairs so we don't double-count a recurring rule already entered as a tx.
+    // Pre-bucket transactions by ISO date and YYYY-MM, plus a Set of realised
+    // rule|date pairs so we don't double-count a recurring rule already in the
+    // ledger.
+    const txByDate = new Map<string, typeof txs>()
     const txByMonth: Record<string, typeof txs> = {}
     const realised = new Set<string>()
     for (const t of txs) {
+      const arr = txByDate.get(t.occurred_on) ?? []
+      arr.push(t)
+      txByDate.set(t.occurred_on, arr)
       const ym = t.occurred_on.slice(0, 7)
       ;(txByMonth[ym] ??= []).push(t)
       if (t.recurring_rule_id) realised.add(`${t.recurring_rule_id}|${t.occurred_on}`)
     }
+
+    // Day-1 deltas for each month in the horizon (and one for horizonStart).
+    const dayOneDelta = (d: Date): { income: number; expense: number } => {
+      const iso = d.toISOString().slice(0, 10)
+      let inc = 0, exp = 0
+      for (const t of (txByDate.get(iso) ?? [])) {
+        const amt = Number(t.amount)
+        if (amt >= 0) inc += amt
+        else exp += -amt
+      }
+      for (const r of rules) {
+        // expandRuleInRange(d, d) returns [d] if the rule fires that day.
+        const occ = expandRuleInRange(r, d, d)
+        if (occ.length === 0) continue
+        if (realised.has(`${r.id}|${iso}`)) continue
+        const eff = effectiveOccurrenceAmount(r, iso, overrides)
+        if (eff == null) continue
+        if (eff >= 0) inc += eff
+        else exp += -eff
+      }
+      return { income: inc, expense: exp }
+    }
+
+    // Leading point — 1st of current month, end of that day.
+    {
+      const { income, expense } = dayOneDelta(horizonStart)
+      const baselineDelta1 = income - expense
+      const scenarioDelta1 = (income + salaryDelta) - expense * (1 + spendDeltaPct / 100)
+      out.push({
+        label: labelFor(horizonStart),
+        iso: horizonStart.toISOString().slice(0, 10),
+        baselineBalance: Math.round(baseline + baselineDelta1),
+        scenarioBalance: Math.round(scenario + scenarioDelta1),
+        monthlyIncome: 0,
+        monthlyExpense: 0,
+      })
+    }
+
     for (let i = 0; i < horizon; i++) {
       const monthStart = new Date(today.getFullYear(), today.getMonth() + i, 1)
       const monthEnd = new Date(today.getFullYear(), today.getMonth() + i + 1, 0)
@@ -106,12 +139,16 @@ export function ForecastLens() {
       const scenarioDelta = (income + salaryDelta) - expense * (1 + spendDeltaPct / 100)
       baseline += baselineDelta
       scenario += scenarioDelta
-      // Emit dot at the start of NEXT month (= end of this month).
+      // Emit dot at the start of NEXT month, INCLUDING that day-1's deltas, so
+      // it matches Ledger's day-1 running balance for that month.
+      const { income: inc1, expense: exp1 } = dayOneDelta(nextMonthStart)
+      const baselineDelta1 = inc1 - exp1
+      const scenarioDelta1 = (inc1 + salaryDelta) - exp1 * (1 + spendDeltaPct / 100)
       out.push({
         label: labelFor(nextMonthStart),
         iso: nextMonthStart.toISOString().slice(0, 10),
-        baselineBalance: Math.round(baseline),
-        scenarioBalance: Math.round(scenario),
+        baselineBalance: Math.round(baseline + baselineDelta1),
+        scenarioBalance: Math.round(scenario + scenarioDelta1),
         monthlyIncome: income,
         monthlyExpense: expense,
       })
