@@ -2,6 +2,7 @@ import { useMemo, useState, useRef, useCallback } from 'react'
 import { Share2, Loader2, Loader, Plus } from 'lucide-react'
 import { motion, type PanInfo } from 'framer-motion'
 import {
+  useRecurringOverridesInRange,
   useRecurringRules,
   useSettings,
   useTransactionsInRange,
@@ -10,26 +11,29 @@ import {
   useShareLink,
   buildShareUrl,
   useRedistributeShared,
+  type RedistributePayload,
 } from '@/hooks/share'
 import { expandRuleInRange } from '@/lib/recurring'
+import { effectiveOccurrenceAmount } from '@/lib/projection'
 import { formatMoney, isoDate } from '@/lib/utils'
 import { pushToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
-import type { RecurringRule, Transaction } from '@/lib/db.types'
+import type { RecurringOverride, RecurringRule, Transaction } from '@/lib/db.types'
 
 /**
  * BUDG-022 — Shared Lens (owner-only).
  *
- * Phase 1 read-only + Phase 2 same-month DnD + Phase 3 cross-month + drop on
- * empty zone (creates a new shared event).
+ * Phases 1–4: read-only view + same-month / cross-month DnD redistribute +
+ * drop-on-empty-zone create + recurring sources via single-occurrence
+ * `recurring_overrides`.
  *
- *  - Drag chip onto another shared row (same kind) → slider → release → atomic
- *    `redistribute_shared` with two `tx_updates`. Works across months too.
- *  - Drag chip onto a per-month "+ create new shared event" drop zone → modal
- *    asks for date + description, slider picks amount → confirm → atomic
- *    `redistribute_shared` with one `tx_update` (decrement source) plus one
- *    `tx_insert` (the new event in the destination month).
- *  - Recurring sources stay guarded for Phase 4.
+ * Drop kinds:
+ *  - row: instant atomic redistribute via `redistribute_shared`.
+ *  - dropzone: opens a modal to capture date + description for the new event.
+ *
+ * Source kinds:
+ *  - tx: writes `tx_updates`.
+ *  - recurring: writes `override_upserts` (single occurrence only — see Plan).
  */
 export function SharedLens() {
   const { data: settings } = useSettings()
@@ -49,6 +53,10 @@ export function SharedLens() {
     horizon.toIso,
   )
   const { data: rules = [], isLoading: rulesLoading } = useRecurringRules()
+  const { data: overrides = [] } = useRecurringOverridesInRange(
+    horizon.fromIso,
+    horizon.toIso,
+  )
   const redistribute = useRedistributeShared()
 
   const sharedTxs = useMemo(() => txs.filter((t) => t.is_shared), [txs])
@@ -60,12 +68,11 @@ export function SharedLens() {
   const baseMonths = useMonthGrouping({
     sharedTxs,
     sharedRules,
+    overrides,
     today: horizon.today,
     horizonEnd: new Date(horizon.toIso + 'T00:00:00'),
   })
 
-  // Always offer at least one extra "future" month tile so cross-month drop
-  // works even when there is nothing planned past the current month yet.
   const months = useMemo(() => {
     if (baseMonths.length === 0) {
       const ym = isoDate(horizon.today).slice(0, 7)
@@ -80,7 +87,7 @@ export function SharedLens() {
     }
     const lastKey = baseMonths[baseMonths.length - 1].key
     const [yy, mm] = lastKey.split('-').map(Number)
-    const next = new Date(yy, mm, 1) // mm is 1-indexed; new Date(y, m, 1) gives next month's 1st
+    const next = new Date(yy, mm, 1)
     const nextKey = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
     const nextLabel = next.toLocaleDateString(undefined, {
       month: 'long',
@@ -96,19 +103,12 @@ export function SharedLens() {
   const totalExpense = months.reduce((s, m) => s + m.totalExpense, 0)
   const eventCount = months.reduce((s, m) => s + m.entries.length, 0)
 
-  // ---------- Drag state ----------
   const [dragSrc, setDragSrc] = useState<Entry | null>(null)
   const [dragTargetKey, setDragTargetKey] = useState<string | null>(null)
   const [transferN, setTransferN] = useState<number>(0)
-
-  // ---------- Drop-on-empty modal (Phase 3) ----------
   const [createDraft, setCreateDraft] = useState<CreateDraft | null>(null)
 
   const onDragStart = useCallback((entry: Entry) => {
-    if (entry.source !== 'tx') {
-      pushToast('Recurring redistribute lands in a follow-up phase', 'info')
-      return
-    }
     setDragSrc(entry)
     setDragTargetKey(null)
     setTransferN(0)
@@ -147,11 +147,8 @@ export function SharedLens() {
     setTransferN(0)
     if (!src || !targetKey) return
 
-    // Drop on empty drop zone — open a modal to capture date + description.
     if (targetKey.startsWith('dropzone:')) {
       const ym = targetKey.slice('dropzone:'.length)
-      // Default occurred_on = first of destination month, but never before today
-      // (clamping avoids "planned in the past" surprises for the current month).
       const [y, m] = ym.split('-').map(Number)
       const firstOfMonth = new Date(y, m - 1, 1)
       const today = new Date(horizon.today)
@@ -166,28 +163,28 @@ export function SharedLens() {
       return
     }
 
-    // Drop on a row — instant commit (Phase 2 + cross-month).
     if (n <= 0) return
     const dst = allEntries.find((e) => e.key === targetKey)
     if (!dst) return
     if (!isValidPair(src, dst)) {
       pushToast(
-        'Targets must be transactions of the same income/expense kind',
+        'Targets must be transactions or recurring rows of the same income/expense kind',
         'error',
       )
       return
     }
     const max = Math.abs(src.amount)
     const safeN = Math.min(n, max)
-    const newSrc = src.amount + (src.amount >= 0 ? -safeN : safeN)
-    const newDst = dst.amount + (dst.amount >= 0 ? safeN : -safeN)
+    const sign = src.amount >= 0 ? 1 : -1 // shared kind sign
+    const newSrc = src.amount + (-sign * safeN) // pull toward zero
+    const newDst = dst.amount + (sign * safeN) // push further from zero
+
+    const payload: RedistributePayload = mergePayload(
+      deltaPayload(src, newSrc),
+      deltaPayload(dst, newDst),
+    )
     try {
-      await redistribute.mutateAsync({
-        tx_updates: [
-          { id: src.sourceId, amount: newSrc },
-          { id: dst.sourceId, amount: newDst },
-        ],
-      })
+      await redistribute.mutateAsync(payload)
       pushToast(`Moved ${formatMoney(safeN, currency)}`, 'success')
     } catch (e) {
       pushToast((e as Error).message, 'error')
@@ -227,8 +224,8 @@ export function SharedLens() {
               {baseMonths.length === 1 ? '' : 's'}
             </h2>
             <p className="text-xs text-fg-muted mt-1">
-              Drag a row's amount onto another shared row (any month, same kind) or onto
-              the "+ new shared event" tile of any month.{' '}
+              Drag a row's amount onto another shared row (any month, same kind), onto a
+              recurring occurrence, or onto a "+ new shared event" tile.{' '}
               {shareLink ? (
                 <>
                   Public:{' '}
@@ -316,6 +313,11 @@ export function SharedLens() {
                           recurring
                         </span>
                       )}
+                      {e.overridden && (
+                        <span className="ml-1.5 text-[10px] uppercase tracking-wider text-accent">
+                          adjusted
+                        </span>
+                      )}
                     </span>
                     <DragChip
                       entry={e}
@@ -331,7 +333,6 @@ export function SharedLens() {
             </ul>
           )}
 
-          {/* Drop zone — visible always, highlights while dragging. */}
           <div
             data-share-dropzone={m.key}
             className={`mt-1 rounded-xl border-2 border-dashed p-3 text-center text-xs transition-colors ${
@@ -367,20 +368,23 @@ export function SharedLens() {
           onConfirm={async (vals) => {
             const src = createDraft.src
             const safeN = Math.min(Math.abs(vals.amount), Math.abs(src.amount))
-            const newSrc = src.amount + (src.amount >= 0 ? -safeN : safeN)
-            const insertAmount = src.amount >= 0 ? safeN : -safeN
+            const sign = src.amount >= 0 ? 1 : -1
+            const newSrc = src.amount + (-sign * safeN)
+            const insertAmount = sign * safeN
+            const srcDelta = deltaPayload(src, newSrc)
+            const payload: RedistributePayload = {
+              ...srcDelta,
+              tx_inserts: [
+                {
+                  occurred_on: vals.occurredOn,
+                  amount: insertAmount,
+                  description: vals.description.trim() || null,
+                  planned: true,
+                },
+              ],
+            }
             try {
-              await redistribute.mutateAsync({
-                tx_updates: [{ id: src.sourceId, amount: newSrc }],
-                tx_inserts: [
-                  {
-                    occurred_on: vals.occurredOn,
-                    amount: insertAmount,
-                    description: vals.description.trim() || null,
-                    planned: true,
-                  },
-                ],
-              })
+              await redistribute.mutateAsync(payload)
               pushToast(`Created and moved ${formatMoney(safeN, currency)}`, 'success')
               setCreateDraft(null)
             } catch (e) {
@@ -391,6 +395,42 @@ export function SharedLens() {
       )}
     </div>
   )
+}
+
+// ---------- Payload assembly helpers ----------
+
+/**
+ * Build the partial payload that turns `entry`'s effective amount into
+ * `newAmount` (signed). For tx → `tx_updates`. For recurring → single-
+ * occurrence `override_upserts`. Magnitude == 0 marks the override as skipped.
+ */
+function deltaPayload(entry: Entry, newAmount: number): RedistributePayload {
+  if (entry.source === 'tx') {
+    return { tx_updates: [{ id: entry.sourceId, amount: newAmount }] }
+  }
+  // recurring
+  const magnitude = Math.abs(newAmount)
+  return {
+    override_upserts: [
+      {
+        recurring_rule_id: entry.sourceId,
+        occurrence_date: entry.occurrenceDate!,
+        amount_override: magnitude === 0 ? null : magnitude,
+        skipped: magnitude === 0,
+      },
+    ],
+  }
+}
+
+function mergePayload(
+  a: RedistributePayload,
+  b: RedistributePayload,
+): RedistributePayload {
+  return {
+    tx_updates: [...(a.tx_updates ?? []), ...(b.tx_updates ?? [])],
+    tx_inserts: [...(a.tx_inserts ?? []), ...(b.tx_inserts ?? [])],
+    override_upserts: [...(a.override_upserts ?? []), ...(b.override_upserts ?? [])],
+  }
 }
 
 interface CreateDraft {
@@ -496,26 +536,21 @@ function DragChip(props: {
   onDragEnd: () => void
 }) {
   const { entry, currency, pending, onDragStart, onDrag, onDragEnd } = props
-  const draggable = entry.source === 'tx'
   const ref = useRef<HTMLSpanElement | null>(null)
   return (
     <motion.span
       ref={ref}
-      drag={draggable ? 'x' : false}
+      drag="x"
       dragSnapToOrigin
       dragElastic={0.2}
       onDragStart={onDragStart}
       onDrag={onDrag}
       onDragEnd={onDragEnd}
       whileDrag={{ scale: 1.1, zIndex: 50 }}
-      className={`stat-num font-medium shrink-0 select-none px-2 py-0.5 rounded-md ${
-        draggable ? 'cursor-grab active:cursor-grabbing bg-bg-elev hover:bg-bg-elev/80' : ''
-      } ${entry.amount >= 0 ? 'text-positive' : 'text-negative'}`}
-      title={
-        draggable
-          ? 'Drag onto another row or a "+ new shared event" tile'
-          : 'Recurring rows: redistribute lands in a follow-up'
-      }
+      className={`stat-num font-medium shrink-0 select-none px-2 py-0.5 rounded-md cursor-grab active:cursor-grabbing bg-bg-elev hover:bg-bg-elev/80 ${
+        entry.amount >= 0 ? 'text-positive' : 'text-negative'
+      }`}
+      title="Drag onto another row or a + new shared event tile"
     >
       {pending ? (
         <Loader className="w-3.5 h-3.5 animate-spin inline" />
@@ -575,7 +610,6 @@ function TransferSlider(props: {
 
 function isValidPair(a: Entry, b: Entry): boolean {
   if (a.key === b.key) return false
-  if (a.source !== 'tx' || b.source !== 'tx') return false // Phase 4 covers recurring
   // Same income/expense kind: both >=0 or both <0.
   if ((a.amount >= 0) !== (b.amount >= 0)) return false
   return true
@@ -591,6 +625,7 @@ interface Entry {
   label: string
   amount: number
   recurring: boolean
+  overridden: boolean
   monthKey: string
 }
 
@@ -605,10 +640,11 @@ interface MonthGroup {
 function useMonthGrouping(args: {
   sharedTxs: Transaction[]
   sharedRules: RecurringRule[]
+  overrides: RecurringOverride[]
   today: Date
   horizonEnd: Date
 }): MonthGroup[] {
-  const { sharedTxs, sharedRules, today, horizonEnd } = args
+  const { sharedTxs, sharedRules, overrides, today, horizonEnd } = args
   return useMemo(() => {
     const map = new Map<string, MonthGroup>()
     const ensure = (ym: string): MonthGroup => {
@@ -638,6 +674,7 @@ function useMonthGrouping(args: {
         label: t.description?.trim() || 'Untitled entry',
         amount,
         recurring: false,
+        overridden: false,
         monthKey: ym,
       })
       if (amount >= 0) g.totalIncome += amount
@@ -647,9 +684,13 @@ function useMonthGrouping(args: {
     for (const r of sharedRules) {
       const dates = expandRuleInRange(r, today, horizonEnd)
       for (const d of dates) {
+        const eff = effectiveOccurrenceAmount(r, d, overrides)
+        if (eff === null) continue // skipped — hide from lens
         const ym = d.slice(0, 7)
         const g = ensure(ym)
-        const signed = r.kind === 'income' ? Number(r.amount) : -Number(r.amount)
+        const ovr = overrides.find(
+          (o) => o.recurring_rule_id === r.id && o.occurrence_date === d,
+        )
         g.entries.push({
           key: `r:${r.id}:${d}`,
           source: 'recurring',
@@ -658,12 +699,13 @@ function useMonthGrouping(args: {
           date: d,
           dateLabel: shortDate(d),
           label: r.name,
-          amount: signed,
+          amount: eff,
           recurring: true,
+          overridden: !!ovr && ovr.amount_override != null,
           monthKey: ym,
         })
-        if (signed >= 0) g.totalIncome += signed
-        else g.totalExpense += -signed
+        if (eff >= 0) g.totalIncome += eff
+        else g.totalExpense += -eff
       }
     }
 
@@ -680,7 +722,7 @@ function useMonthGrouping(args: {
       g.totalIncome = Math.round(g.totalIncome * 100) / 100
     }
     return groups
-  }, [sharedTxs, sharedRules, today, horizonEnd])
+  }, [sharedTxs, sharedRules, overrides, today, horizonEnd])
 }
 
 function shortDate(iso: string): string {
