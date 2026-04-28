@@ -36,6 +36,7 @@ export function PublicSharePage() {
 
 function PublicShareView({ payload }: { payload: PublicSharePayload }) {
   const months = useMonthGrouping(payload)
+  const currency = payload.currency || 'CZK'
 
   return (
     <div className="min-h-screen bg-bg text-fg pb-20">
@@ -65,10 +66,10 @@ function PublicShareView({ payload }: { payload: PublicSharePayload }) {
             <header className="flex items-baseline justify-between gap-3">
               <h2 className="font-semibold capitalize">{m.label}</h2>
               <div className="text-xs text-fg-subtle">
-                Total: <span className="stat-num font-medium text-negative">{formatMoney(m.totalExpense, 'EUR')}</span>
+                Total: <span className="stat-num font-medium text-negative">{formatMoney(m.totalExpense, currency)}</span>
                 {m.totalIncome > 0 && (
                   <>
-                    {' · '}<span className="stat-num font-medium text-positive">+{formatMoney(m.totalIncome, 'EUR')}</span>
+                    {' · '}<span className="stat-num font-medium text-positive">+{formatMoney(m.totalIncome, currency)}</span>
                   </>
                 )}
               </div>
@@ -86,7 +87,7 @@ function PublicShareView({ payload }: { payload: PublicSharePayload }) {
                   <span
                     className={`stat-num font-medium shrink-0 ${e.amount >= 0 ? 'text-positive' : 'text-negative'}`}
                   >
-                    {e.amount >= 0 ? '+' : '−'}{formatMoney(Math.abs(e.amount), 'EUR')}
+                    {e.amount >= 0 ? '+' : '−'}{formatMoney(Math.abs(e.amount), currency)}
                   </span>
                 </li>
               ))}

@@ -77,6 +77,7 @@ export function useDisableShareLink() {
 
 export interface PublicSharePayload {
   display_name: string
+  currency: string
   transactions: {
     id: string
     amount: number

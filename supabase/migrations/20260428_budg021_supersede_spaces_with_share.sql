@@ -145,6 +145,7 @@ as $$
 declare
   v_owner uuid;
   v_name  text;
+  v_currency text;
   v_tx    jsonb;
   v_rr    jsonb;
 begin
@@ -156,6 +157,12 @@ begin
   if v_owner is null then
     return null;
   end if;
+
+  select coalesce(currency, 'CZK')
+    into v_currency
+    from public.settings
+   where user_id = v_owner;
+  v_currency := coalesce(v_currency, 'CZK');
 
   select coalesce(jsonb_agg(t order by t.occurred_on), '[]'::jsonb)
     into v_tx
@@ -177,6 +184,7 @@ begin
 
   return jsonb_build_object(
     'display_name', v_name,
+    'currency', v_currency,
     'transactions', v_tx,
     'recurring_rules', v_rr
   );
