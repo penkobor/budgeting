@@ -5,7 +5,7 @@ import {
   Area, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine, Line, ComposedChart,
 } from 'recharts'
 import { useAssets, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules, useSettings, useTransactionsInRange } from '@/hooks/queries'
-import { formatMoney, monthKey } from '@/lib/utils'
+import { formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
 
@@ -34,8 +34,8 @@ export function ForecastLens() {
   // any other lens.
   const horizonStart = useMemo(() => new Date(today.getFullYear(), today.getMonth(), 1), [today])
   const horizonEnd = useMemo(() => new Date(today.getFullYear(), today.getMonth() + horizon, 0), [today, horizon])
-  const fromIso = horizonStart.toISOString().slice(0, 10)
-  const toIso = horizonEnd.toISOString().slice(0, 10)
+  const fromIso = isoDate(horizonStart)
+  const toIso = isoDate(horizonEnd)
   const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
   const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
   const { data: assets = [] } = useAssets()
@@ -78,7 +78,7 @@ export function ForecastLens() {
 
     // Day-1 deltas for each month in the horizon (and one for horizonStart).
     const dayOneDelta = (d: Date): { income: number; expense: number } => {
-      const iso = d.toISOString().slice(0, 10)
+      const iso = isoDate(d)
       let inc = 0, exp = 0
       for (const t of (txByDate.get(iso) ?? [])) {
         const amt = Number(t.amount)
@@ -105,7 +105,7 @@ export function ForecastLens() {
       const scenarioDelta1 = (income + salaryDelta) - expense * (1 + spendDeltaPct / 100)
       out.push({
         label: labelFor(horizonStart),
-        iso: horizonStart.toISOString().slice(0, 10),
+        iso: isoDate(horizonStart),
         baselineBalance: Math.round(baseline + baselineDelta1),
         scenarioBalance: Math.round(scenario + scenarioDelta1),
         monthlyIncome: 0,
@@ -117,7 +117,7 @@ export function ForecastLens() {
       const monthStart = new Date(today.getFullYear(), today.getMonth() + i, 1)
       const monthEnd = new Date(today.getFullYear(), today.getMonth() + i + 1, 0)
       const nextMonthStart = new Date(today.getFullYear(), today.getMonth() + i + 1, 1)
-      const ym = monthStart.toISOString().slice(0, 7)
+      const ym = isoDate(monthStart).slice(0, 7)
       let income = 0, expense = 0
       // 1. Ledger entries (manual + already-materialised recurring) for this month
       for (const t of (txByMonth[ym] ?? [])) {
@@ -146,7 +146,7 @@ export function ForecastLens() {
       const scenarioDelta1 = (inc1 + salaryDelta) - exp1 * (1 + spendDeltaPct / 100)
       out.push({
         label: labelFor(nextMonthStart),
-        iso: nextMonthStart.toISOString().slice(0, 10),
+        iso: isoDate(nextMonthStart),
         baselineBalance: Math.round(baseline + baselineDelta1),
         scenarioBalance: Math.round(scenario + scenarioDelta1),
         monthlyIncome: income,
