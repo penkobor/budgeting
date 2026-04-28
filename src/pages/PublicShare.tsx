@@ -60,10 +60,10 @@ function PublicShareView({ payload }: { payload: PublicSharePayload }) {
         <div className="max-w-2xl mx-auto">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-wider text-fg-subtle">
+              <div className="inline-flex items-center gap-2 text-[0.6875rem] uppercase tracking-wider text-fg-subtle">
                 <Share2 className="w-3 h-3" /> Public share
               </div>
-              <h1 className="text-2xl md:text-3xl font-semibold mt-1.5 break-words">
+              <h1 className="text-title-1 md:text-large-title font-semibold mt-1.5 break-words">
                 <span className="text-accent">{payload.display_name}</span>
                 <span className="text-fg-muted"> plans:</span>
               </h1>
@@ -118,7 +118,7 @@ function PublicShareView({ payload }: { payload: PublicSharePayload }) {
                     <span className="flex-1 min-w-0 truncate">
                       {e.label}
                       {e.recurring && (
-                        <span className="ml-1.5 text-[10px] uppercase tracking-wider text-fg-subtle">
+                        <span className="ml-1.5 text-[0.625rem] uppercase tracking-wider text-fg-subtle">
                           recurring
                         </span>
                       )}
@@ -170,7 +170,7 @@ function CalculatorBubble(props: {
     <div className="fixed bottom-4 right-4 z-40 max-w-[calc(100vw-2rem)]">
       <div className="card shadow-lg p-3 flex items-center gap-3 bg-bg-elev/95 backdrop-blur border border-accent/40">
         <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-wider text-fg-subtle">
+          <div className="text-[0.625rem] uppercase tracking-wider text-fg-subtle">
             Calculator
           </div>
           <div className="text-xs text-fg-muted">{count} selected</div>

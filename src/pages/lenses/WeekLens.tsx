@@ -10,6 +10,7 @@ import {
 import { formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
+import { HeroFigure } from '@/components/ui/HeroFigure'
 
 function addDays(d: Date, n: number) {
   const out = new Date(d)
@@ -168,7 +169,7 @@ export function WeekLens() {
       <header className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="label">{offsetLabel}</div>
-          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5 truncate">
+          <h1 className="text-title-1 md:text-large-title font-semibold mt-0.5 truncate">
             {start.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} — {end.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
           </h1>
         </div>
@@ -206,13 +207,15 @@ export function WeekLens() {
         animate={{ opacity: 1, y: 0 }}
         className="card p-5 md:p-7"
       >
-        <div className="label mb-1">Planned</div>
-        <div className="stat-num font-semibold text-4xl md:text-5xl">
-          {formatMoney(totalExpense, currency)}
-        </div>
-        <div className="text-xs md:text-sm text-fg-subtle mt-2 stat-num">
-          Income {formatMoney(totalIncome, currency)} · Net {formatMoney(totalIncome - totalExpense, currency)}
-        </div>
+        <HeroFigure
+          eyebrow="Planned"
+          value={formatMoney(totalExpense, currency)}
+          sublabel={
+            <span className="stat-num">
+              Income {formatMoney(totalIncome, currency)} · Net {formatMoney(totalIncome - totalExpense, currency)}
+            </span>
+          }
+        />
       </motion.section>
 
       <section className="card p-4 md:p-5">
@@ -297,11 +300,11 @@ export function WeekLens() {
                   <div className="text-sm font-medium truncate flex items-center gap-2">
                     <span className="truncate">{i.description}</span>
                     {i.recurring && (
-                      <span className="text-[10px] text-fg-subtle uppercase tracking-wider shrink-0">recurring</span>
+                      <span className="text-[0.625rem] text-fg-subtle uppercase tracking-wider shrink-0">recurring</span>
                     )}
                     {i.recurring && i.overridden && (
                       <span
-                        className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent shrink-0"
+                        className="text-[0.625rem] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent shrink-0"
                         title={`Trimmed from ${formatMoney(i.originalAmount ?? 0, currency)} via rebalance`}
                       >
                         trimmed

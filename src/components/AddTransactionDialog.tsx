@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { X } from 'lucide-react'
 import { Modal } from './ui/Modal'
 import { pushToast } from './ui/Toast'
+import { useConfirm } from './ui/ConfirmDialog'
 import {
   RebalanceStep,
   RebalanceStepFooter,
@@ -57,6 +59,7 @@ export function AddTransactionDialog({
   const { data: categories } = useCategories()
   const { data: settings } = useSettings()
   const upsertTx = useUpsertTransaction()
+  const confirm = useConfirm()
   const applyRebalanceMutation = useApplyRebalance()
 
   const [date, setDate] = useState(initialDate ?? isoDate(new Date()))
@@ -257,12 +260,12 @@ export function AddTransactionDialog({
 
   const saveAnyway = async () => {
     if (!pendingTx) return
-    if (
-      typeof window !== 'undefined' &&
-      !window.confirm('This will exceed your monthly goal. Save anyway?')
-    ) {
-      return
-    }
+    const ok = await confirm({
+      title: 'Exceeds your monthly goal',
+      description: 'Saving will push your monthly net past the goal you set. Continue without rebalancing?',
+      confirmLabel: 'Save anyway',
+    })
+    if (!ok) return
     await persistTransactionAndClose(pendingTx)
   }
 
@@ -336,6 +339,7 @@ export function AddTransactionDialog({
               if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit(e as React.FormEvent)
             }}
           >
+            {/* Kind segmented control. */}
             <div className="flex gap-2">
               <button
                 type="button"
@@ -353,64 +357,65 @@ export function AddTransactionDialog({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="min-w-0">
-                <div className="label mb-1.5">Amount</div>
+            {/* HIG iOS grouped list: one card with hairline separators between
+               rows, label-left / value-right. Each row is at least 44pt tall
+               so the entire row is the hit target. */}
+            <div className="card divide-y divide-border overflow-hidden">
+              <FormRow label="Amount">
                 <input
-                  className="input stat-num text-lg"
+                  className="ios-cell-input stat-num font-semibold"
                   inputMode="decimal"
                   placeholder="0"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
+                  autoFocus
                 />
-              </div>
-              <div className="min-w-0">
-                <div className="label mb-1.5">Date</div>
+                <ClearButton show={amount.length > 0} onClick={() => setAmount('')} />
+              </FormRow>
+              <FormRow label="Date">
                 <input
-                  className="input stat-num"
+                  className="ios-cell-input stat-num"
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                 />
-              </div>
+              </FormRow>
+              <FormRow label="Description">
+                <input
+                  className="ios-cell-input"
+                  placeholder="e.g. Groceries at Albert"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+                <ClearButton show={description.length > 0} onClick={() => setDescription('')} />
+              </FormRow>
+              <FormRow label="Category">
+                <select
+                  className="ios-cell-input pr-1"
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                >
+                  <option value="">— uncategorised —</option>
+                  {filteredCats.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </FormRow>
             </div>
 
-            <div>
-              <div className="label mb-1.5">Description</div>
-              <input
-                className="input"
-                placeholder="e.g. Groceries at Albert"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <div className="label mb-1.5">Category</div>
-              <select
-                className="input"
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-              >
-                <option value="">— uncategorised —</option>
-                {filteredCats.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <label className="flex items-center gap-2.5 rounded-xl border border-border p-3 cursor-pointer">
+            {/* Shared toggle as its own grouped cell. */}
+            <label className="card flex items-start gap-3 p-4 cursor-pointer min-h-[44px]">
               <input
                 type="checkbox"
                 checked={isShared}
                 onChange={(e) => setIsShared(e.target.checked)}
-                className="w-4 h-4"
+                className="w-4 h-4 mt-0.5"
               />
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium">Show on my public share page</div>
-                <div className="text-[11px] text-fg-subtle">
+                <div className="text-callout font-medium">Show on my public share page</div>
+                <div className="text-footnote text-fg-subtle mt-0.5">
                   Anyone with your share link can see this entry. Toggle in Settings.
                 </div>
               </div>
@@ -419,5 +424,35 @@ export function AddTransactionDialog({
         )}
       </AnimatePresence>
     </Modal>
+  )
+}
+
+/** Single row inside a HIG-style grouped form card. Label sits left, the
+ *  control fills the rest right-aligned. Min height 44pt = comfortable touch
+ *  target. The whole row breathes via px-4 so the hairline divider runs full
+ *  width of the card. */
+function FormRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 min-h-[44px] px-4 py-2">
+      <div className="text-callout text-fg shrink-0 w-[5.5rem]">{label}</div>
+      <div className="flex-1 min-w-0 flex items-center justify-end gap-1">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/** Native iOS clear-X for text inputs. Renders only when input is populated. */
+function ClearButton({ show, onClick }: { show: boolean; onClick: () => void }) {
+  if (!show) return null
+  return (
+    <button
+      type="button"
+      aria-label="Clear"
+      onClick={onClick}
+      className="shrink-0 w-6 h-6 grid place-items-center rounded-full bg-bg-elev text-fg-subtle hover:text-fg active:scale-90 transition"
+    >
+      <X className="w-3.5 h-3.5" />
+    </button>
   )
 }

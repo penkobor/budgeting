@@ -139,7 +139,7 @@ export function RebalanceStep({
                 />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium truncate">{c.ruleName}</div>
-                  <div className="text-[11px] text-fg-subtle stat-num">
+                  <div className="text-[0.6875rem] text-fg-subtle stat-num">
                     {c.date} · was {formatMoney(c.amount, currency)}
                   </div>
                 </div>
@@ -169,12 +169,12 @@ export function RebalanceStep({
                     <div className="text-xs text-negative stat-num">
                       −{formatMoney(delta, currency)}
                     </div>
-                    <div className="text-[11px] text-fg-subtle stat-num">
+                    <div className="text-[0.6875rem] text-fg-subtle stat-num">
                       → {formatMoney(newAmount, currency)}
                     </div>
                   </div>
                 ) : isExcluded ? (
-                  <div className="text-[11px] text-fg-subtle italic shrink-0">fully used</div>
+                  <div className="text-[0.6875rem] text-fg-subtle italic shrink-0">fully used</div>
                 ) : null}
               </li>
             )

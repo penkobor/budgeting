@@ -1,7 +1,8 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { motion, useDragControls } from 'framer-motion'
+import { motion, useDragControls, useReducedMotion } from 'framer-motion'
+import { haptics } from '@/lib/haptics'
 
 interface ModalProps {
   open: boolean
@@ -23,6 +24,7 @@ interface ModalProps {
 export function Modal({ open, onOpenChange, title, description, children, footer, size = 'md' }: ModalProps) {
   const sizeClass = { sm: 'md:max-w-sm', md: 'md:max-w-md', lg: 'md:max-w-2xl' }[size]
   const dragControls = useDragControls()
+  const reduceMotion = useReducedMotion()
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -41,7 +43,10 @@ export function Modal({ open, onOpenChange, title, description, children, footer
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.6 }}
             onDragEnd={(_e, info) => {
-              if (info.offset.y > 120 || info.velocity.y > 600) onOpenChange(false)
+              if (info.offset.y > 120 || info.velocity.y > 600) {
+                if (!reduceMotion) haptics.light()
+                onOpenChange(false)
+              }
             }}
             className={[
               'pointer-events-auto flex flex-col outline-none',
@@ -57,15 +62,15 @@ export function Modal({ open, onOpenChange, title, description, children, footer
           >
             {/* Mobile sticky header — drag-zone for swipe-to-dismiss */}
             <div
-              className="md:hidden sticky top-0 z-10 bg-bg-card/95 backdrop-blur-md rounded-t-3xl px-5 pt-2 pb-3 border-b border-border touch-none cursor-grab active:cursor-grabbing"
+              className="md:hidden sticky top-0 z-10 glass rounded-t-3xl px-5 pt-2 pb-3 touch-none cursor-grab active:cursor-grabbing"
               onPointerDown={(e) => dragControls.start(e)}
             >
               <div className="mx-auto mb-3 w-9 h-1 rounded-full bg-fg-subtle/40" aria-hidden />
               <div className="flex items-center justify-between gap-3 min-h-[28px]">
-                <div className="w-10" aria-hidden />
+                <div className="w-11" aria-hidden />
                 {title && <Dialog.Title className="font-semibold text-base text-center flex-1 truncate">{title}</Dialog.Title>}
                 <Dialog.Close
-                  className="w-10 h-10 -mr-2 grid place-items-center rounded-full text-fg-muted hover:bg-bg-elev active:scale-95 transition"
+                  className="icon-btn -mr-1"
                   aria-label="Close"
                   onPointerDown={(e) => e.stopPropagation()}
                 >
@@ -80,7 +85,7 @@ export function Modal({ open, onOpenChange, title, description, children, footer
                 {title && <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>}
                 {description && <Dialog.Description className="text-sm text-fg-muted mt-1">{description}</Dialog.Description>}
               </div>
-              <Dialog.Close className="btn-ghost p-1.5 rounded-lg shrink-0" aria-label="Close">
+              <Dialog.Close className="icon-btn shrink-0" aria-label="Close">
                 <X className="w-4 h-4" />
               </Dialog.Close>
             </div>
@@ -92,7 +97,7 @@ export function Modal({ open, onOpenChange, title, description, children, footer
 
             {/* Sticky footer when provided */}
             {footer && (
-              <div className="max-md:sticky max-md:bottom-0 max-md:bg-bg-card/95 max-md:backdrop-blur-md max-md:border-t max-md:border-border max-md:px-5 max-md:pt-3 max-md:pb-[max(env(safe-area-inset-bottom),12px)] md:mt-6 flex justify-end gap-2">
+              <div className="max-md:sticky max-md:bottom-0 max-md:bg-bg-card/95 max-md:backdrop-blur-md max-md:border-t max-md:border-border max-md:px-5 max-md:pt-3 max-md:pb-[max(env(safe-area-inset-bottom),12px)] md:mt-6 flex flex-wrap justify-end gap-2">
                 {footer}
               </div>
             )}

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
+import { haptics } from '@/lib/haptics'
 import type {
   Category,
   CategoryInsert,
@@ -122,7 +123,10 @@ export function useUpsertTransaction() {
       if (error) throw error
       return data as Transaction
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
+    onSuccess: () => {
+      haptics.light()
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+    },
   })
 }
 
@@ -146,7 +150,10 @@ export function useDeleteTransaction() {
       const { error } = await supabase.from('transactions').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
+    onSuccess: () => {
+      haptics.heavy()
+      qc.invalidateQueries({ queryKey: ['transactions'] })
+    },
   })
 }
 
@@ -371,6 +378,7 @@ export function useApplyRebalance() {
       return data as Transaction
     },
     onSuccess: () => {
+      haptics.success()
       qc.invalidateQueries({ queryKey: ['transactions'] })
       qc.invalidateQueries({ queryKey: ['recurring_overrides'] })
     },
