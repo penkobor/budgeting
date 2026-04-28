@@ -57,7 +57,7 @@ flowchart LR
 
 ## Implementation Log
 
-*(none yet — design phase)*
+- [[BUDG-022 - 2026-04-28 - phase1-shared-lens-scaffold|2026-04-28 — Phase 1: read-only Shared Lens scaffold landed]]
 
 ## Related
 
