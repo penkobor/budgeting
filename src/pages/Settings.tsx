@@ -5,6 +5,7 @@ import { useSettings, useUpdateSettings } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
 import { useUi } from '@/store/ui'
 import { supabase } from '@/lib/supabase'
+import { getHapticsPreference, isHapticsSupported, setHapticsEnabled, haptics } from '@/lib/haptics'
 import { APP_VERSION, BUILD_SHA, BUILD_TIME, formatBuildTime } from '@/lib/version'
 import { useShareLink, useUpsertShareLink, useDisableShareLink, buildShareUrl } from '@/hooks/share'
 import { pushToast } from '@/components/ui/Toast'
@@ -54,6 +55,7 @@ export function SettingsPage() {
             <button onClick={() => setTheme('light')} className={`btn flex-1 ${theme === 'light' ? 'bg-accent/10 text-accent border border-accent/30' : 'btn-outline'}`}>Light</button>
           </div>
         </div>
+        <HapticsToggle />
       </section>
 
       <section className="card p-0 overflow-hidden">
@@ -216,5 +218,33 @@ function ShareLinkSection() {
         </div>
       )}
     </section>
+  )
+}
+
+function HapticsToggle() {
+  const supported = isHapticsSupported()
+  const [enabled, setEnabled] = useState(getHapticsPreference())
+
+  const toggle = () => {
+    const next = !enabled
+    setEnabled(next)
+    setHapticsEnabled(next)
+    if (next) haptics.medium()
+  }
+
+  return (
+    <div>
+      <div className="label mb-1.5">Haptic feedback</div>
+      <button
+        onClick={toggle}
+        disabled={!supported}
+        className={`btn w-full ${enabled && supported ? 'bg-accent/10 text-accent border border-accent/30' : 'btn-outline'}`}
+      >
+        {!supported ? 'Not supported on this device' : enabled ? 'On — tap to disable' : 'Off — tap to enable'}
+      </button>
+      <p className="text-xs text-fg-subtle mt-1">
+        Light vibration on every button tap. Works on Android &amp; most desktop browsers; iOS Safari has no Web API for the Taptic Engine.
+      </p>
+    </div>
   )
 }
