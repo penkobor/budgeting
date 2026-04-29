@@ -5,6 +5,8 @@ import {
   ArrowUpRight,
   ChevronLeft,
   ChevronRight,
+  Pencil,
+  Trash2,
   Wallet,
 } from 'lucide-react'
 import {
@@ -21,10 +23,6 @@ import { formatMoney, isoDate, monthKey, daysInMonth } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
-import { RowActions } from '@/components/ui/RowActions'
-import { SwipeableRow } from '@/components/ui/SwipeableRow'
-import { HeroFigure } from '@/components/ui/HeroFigure'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { Transaction } from '@/lib/db.types'
 
 function addDays(d: Date, n: number) {
@@ -57,7 +55,6 @@ export function TodayLens() {
   const categories = personalCategories
   const { data: assets = [] } = useAssets()
   const deleteTx = useDeleteTransaction()
-  const confirm = useConfirm()
   const currency = settings?.currency ?? 'CZK'
   const assetBoost = useMemo(
     () => assets.reduce((s, a) => s + (a.include_in_balance ? Number(a.value) : 0), 0),
@@ -224,7 +221,7 @@ export function TodayLens() {
       <header className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="label">{offsetLabel}</div>
-          <h1 className="text-title-1 md:text-large-title font-semibold mt-0.5 truncate">{dayLabel}</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5 truncate">{dayLabel}</h1>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button
@@ -260,24 +257,26 @@ export function TodayLens() {
         animate={{ opacity: 1, y: 0 }}
         className="card p-5 md:p-7"
       >
-        <HeroFigure
-          eyebrow={`Planned ${dayOffset === 0 ? 'for today' : 'for this day'}`}
-          value={
-            <span className={dayExpense === 0 ? 'text-fg-muted' : undefined}>
-              {formatMoney(dayExpense, currency)}
-            </span>
-          }
-          sublabel={
-            dayExpense === 0 && dayIncome === 0 ? (
-              'Nothing planned.'
-            ) : (
-              <span className="stat-num">
-                Income +{formatMoney(dayIncome, currency)} · Net{' '}
-                {formatMoney(dayIncome - dayExpense, currency)}
-              </span>
-            )
-          }
-        />
+        <div className="label mb-1">
+          Planned {dayOffset === 0 ? 'for today' : 'for this day'}
+        </div>
+        <div
+          className={`stat-num font-semibold text-4xl md:text-5xl ${
+            dayExpense === 0 ? 'text-fg-muted' : 'text-fg'
+          }`}
+        >
+          {formatMoney(dayExpense, currency)}
+        </div>
+        <div className="text-xs md:text-sm text-fg-subtle mt-2 stat-num">
+          {dayExpense === 0 && dayIncome === 0 ? (
+            'Nothing planned.'
+          ) : (
+            <>
+              Income +{formatMoney(dayIncome, currency)} · Net{' '}
+              {formatMoney(dayIncome - dayExpense, currency)}
+            </>
+          )}
+        </div>
       </motion.section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
@@ -303,96 +302,104 @@ export function TodayLens() {
             : `${items.length} ${items.length === 1 ? 'item' : 'items'}`}
         </h2>
         {items.length > 0 && (
-          <div className="divide-y divide-border -mx-5 md:-mx-7">
-            {items.map((i) => {
-              const editAction = i.recurring
-                ? () =>
-                    setEditingPending({
-                      rule_id: i.ruleId,
-                      date: viewedIso,
-                      amount: i.amount,
-                      description: i.description,
-                      categoryId: i.categoryId,
-                    })
-                : () => setEditingTx(i.tx)
-              const deleteAction = i.recurring
-                ? undefined
-                : async () => {
-                    const ok = await confirm({
-                      title: 'Delete this entry?',
-                      description: i.description
-                        ? `“${i.description}” will be removed permanently.`
-                        : 'This entry will be removed permanently.',
-                      destructive: true,
-                    })
-                    if (ok) deleteTx.mutate(i.tx.id)
-                  }
-              return (
-                <SwipeableRow
-                  key={i.key}
-                  onEdit={editAction}
-                  onDelete={deleteAction}
-                >
-                  <div className="group flex items-center justify-between gap-3 px-5 md:px-7 py-2">
-                    <div className="min-w-0 flex items-center gap-3">
-                      <div
-                        className={`w-8 h-8 rounded-lg grid place-items-center shrink-0 ${
-                          i.amount >= 0
-                            ? 'bg-positive/10 text-positive'
-                            : 'bg-negative/10 text-negative'
-                        }`}
-                      >
-                        {i.amount >= 0 ? (
-                          <ArrowUpRight className="w-4 h-4" />
-                        ) : (
-                          <ArrowDownRight className="w-4 h-4" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium truncate flex items-center gap-2">
-                          <span className="truncate">{i.description}</span>
-                          {i.recurring && (
-                            <span className="text-[0.625rem] text-fg-subtle uppercase tracking-wider shrink-0">
-                              recurring
-                            </span>
-                          )}
-                          {i.recurring && i.overridden && (
-                            <span
-                              className="text-[0.625rem] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent shrink-0"
-                              title={`Trimmed from ${formatMoney(i.originalAmount, currency)} via rebalance`}
-                            >
-                              trimmed
-                            </span>
-                          )}
-                        </div>
-                        {i.recurring && i.overridden && (
-                          <div className="text-[0.6875rem] text-fg-subtle stat-num mt-0.5">
-                            was <span className="line-through">{formatMoney(i.originalAmount, currency)}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <div
-                        className={`stat-num text-sm ${
-                          i.amount >= 0 ? 'text-positive' : 'text-negative'
-                        }`}
-                      >
-                        {formatMoney(i.amount, currency)}
-                      </div>
-                      {/* Desktop hover-revealed actions; mobile uses the swipe gesture. */}
-                      <div className="hidden md:block">
-                        <RowActions
-                          onEdit={editAction}
-                          onDelete={deleteAction}
-                          size="sm"
-                        />
-                      </div>
-                    </div>
+          <div className="divide-y divide-border">
+            {items.map((i) => (
+              <div
+                key={i.key}
+                className="group flex items-center justify-between gap-3 py-2"
+              >
+                <div className="min-w-0 flex items-center gap-3">
+                  <div
+                    className={`w-8 h-8 rounded-lg grid place-items-center shrink-0 ${
+                      i.amount >= 0
+                        ? 'bg-positive/10 text-positive'
+                        : 'bg-negative/10 text-negative'
+                    }`}
+                  >
+                    {i.amount >= 0 ? (
+                      <ArrowUpRight className="w-4 h-4" />
+                    ) : (
+                      <ArrowDownRight className="w-4 h-4" />
+                    )}
                   </div>
-                </SwipeableRow>
-              )
-            })}
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate flex items-center gap-2">
+                      <span className="truncate">{i.description}</span>
+                      {i.recurring && (
+                        <span className="text-[10px] text-fg-subtle uppercase tracking-wider shrink-0">
+                          recurring
+                        </span>
+                      )}
+                      {i.recurring && i.overridden && (
+                        <span
+                          className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent shrink-0"
+                          title={`Trimmed from ${formatMoney(i.originalAmount, currency)} via rebalance`}
+                        >
+                          trimmed
+                        </span>
+                      )}
+                    </div>
+                    {i.recurring && i.overridden && (
+                      <div className="text-[11px] text-fg-subtle stat-num mt-0.5">
+                        was <span className="line-through">{formatMoney(i.originalAmount, currency)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div
+                    className={`stat-num text-sm ${
+                      i.amount >= 0 ? 'text-positive' : 'text-negative'
+                    }`}
+                  >
+                    {formatMoney(i.amount, currency)}
+                  </div>
+                  <div className="flex items-center gap-1 max-md:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    {i.recurring ? (
+                      <button
+                        onClick={() =>
+                          setEditingPending({
+                            rule_id: i.ruleId,
+                            date: viewedIso,
+                            amount: i.amount,
+                            description: i.description,
+                            categoryId: i.categoryId,
+                          })
+                        }
+                        className="btn-ghost !p-1.5"
+                        title="Edit for this day (creates a per-day override, doesn't change the rule)"
+                        aria-label="Edit recurring entry for this day"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setEditingTx(i.tx)}
+                          className="btn-ghost !p-1.5"
+                          title="Edit"
+                          aria-label="Edit entry"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm('Delete this entry?')) {
+                              deleteTx.mutate(i.tx.id)
+                            }
+                          }}
+                          className="btn-ghost !p-1.5 text-negative"
+                          title="Delete"
+                          aria-label="Delete entry"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>
@@ -446,7 +453,7 @@ function Mini({
       >
         {value}
       </div>
-      {sub && <div className="text-[0.6875rem] md:text-xs text-fg-subtle mt-1">{sub}</div>}
+      {sub && <div className="text-[11px] md:text-xs text-fg-subtle mt-1">{sub}</div>}
     </div>
   )
 }

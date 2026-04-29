@@ -1,9 +1,7 @@
 import { useState } from 'react'
-import { Plus, Coins, TrendingUp, Bitcoin, Wallet, Box } from 'lucide-react'
+import { Plus, Pencil, Trash2, Coins, TrendingUp, Bitcoin, Wallet, Box } from 'lucide-react'
 import { useAssets, useUpsertAsset, useDeleteAsset, useSettings } from '@/hooks/queries'
 import { Modal } from '@/components/ui/Modal'
-import { RowActions } from '@/components/ui/RowActions'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { formatMoney } from '@/lib/utils'
 import type { Asset, AssetType } from '@/lib/db.types'
 
@@ -23,7 +21,6 @@ export function AssetsPage() {
   const { data: settings } = useSettings()
   const upsert = useUpsertAsset()
   const del = useDeleteAsset()
-  const confirm = useConfirm()
   const [editing, setEditing] = useState<Asset | null>(null)
   const [adding, setAdding] = useState(false)
 
@@ -39,7 +36,7 @@ export function AssetsPage() {
       <header className="flex items-center justify-between">
         <div>
           <div className="label">Wealth</div>
-          <h1 className="text-title-1 md:text-large-title font-semibold mt-0.5">Assets</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">Assets</h1>
         </div>
         <button onClick={() => setAdding(true)} className="btn-primary">
           <Plus className="w-4 h-4" /> Add
@@ -72,7 +69,7 @@ export function AssetsPage() {
         {assets.map((a) => {
           const Icon = iconFor(a.type)
           return (
-            <div key={a.id} className="group flex items-center gap-3 p-4">
+            <div key={a.id} className="flex items-center gap-3 p-4">
               <div className="w-9 h-9 rounded-xl bg-accent/10 text-accent grid place-items-center shrink-0">
                 <Icon className="w-4 h-4" />
               </div>
@@ -80,7 +77,7 @@ export function AssetsPage() {
                 <div className="font-medium truncate flex items-center gap-2">
                   {a.name}
                   {!a.include_in_balance && (
-                    <span className="text-[0.625rem] uppercase tracking-wide bg-fg-muted/10 text-fg-muted px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] uppercase tracking-wide bg-fg-muted/10 text-fg-muted px-1.5 py-0.5 rounded">
                       excluded
                     </span>
                   )}
@@ -101,22 +98,22 @@ export function AssetsPage() {
                       include_in_balance: !a.include_in_balance,
                     })
                   }
-                  className={`text-[0.6875rem] mt-0.5 ${a.include_in_balance ? 'text-accent' : 'text-fg-muted'}`}
+                  className={`text-[11px] mt-0.5 ${a.include_in_balance ? 'text-accent' : 'text-fg-muted'}`}
                 >
                   {a.include_in_balance ? 'In balance' : 'Excluded'}
                 </button>
               </div>
-              <RowActions
-                onEdit={() => setEditing(a)}
-                onDelete={async () => {
-                  const ok = await confirm({
-                    title: `Delete asset “${a.name}”?`,
-                    description: 'This is a manual asset entry. Removing it does not affect transactions.',
-                    destructive: true,
-                  })
-                  if (ok) del.mutate(a.id)
+              <button onClick={() => setEditing(a)} className="btn-ghost !p-2">
+                <Pencil className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm(`Delete asset "${a.name}"?`)) del.mutate(a.id)
                 }}
-              />
+                className="btn-ghost !p-2 text-negative"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
           )
         })}
@@ -217,7 +214,7 @@ function AssetForm({
                 key={id}
                 type="button"
                 onClick={() => setType(id)}
-                className={`flex flex-col items-center gap-1 py-2 rounded-xl text-[0.6875rem] transition-all ${
+                className={`flex flex-col items-center gap-1 py-2 rounded-xl text-[11px] transition-all ${
                   type === id
                     ? 'bg-accent/10 text-accent border border-accent/30'
                     : 'border border-border text-fg-muted hover:text-fg'

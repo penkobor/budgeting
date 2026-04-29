@@ -49,7 +49,7 @@ export function CommandPalette({ onAdd }: CommandPaletteProps) {
             placeholder="Search or jump to…"
             className="flex-1 bg-transparent py-3.5 text-sm placeholder:text-fg-subtle outline-none"
           />
-          <kbd className="text-[0.625rem] font-mono text-fg-subtle">ESC</kbd>
+          <kbd className="text-[10px] font-mono text-fg-subtle">ESC</kbd>
         </div>
         <Command.List className="max-h-80 overflow-y-auto p-2">
           <Command.Empty className="py-8 text-center text-sm text-fg-muted">No results.</Command.Empty>
@@ -83,7 +83,7 @@ function Item({ onSelect, icon, label, hint }: { onSelect: () => void; icon: Rea
     >
       <span className="text-fg-muted">{icon}</span>
       <span className="flex-1">{label}</span>
-      {hint && <kbd className="text-[0.625rem] font-mono text-fg-subtle">{hint}</kbd>}
+      {hint && <kbd className="text-[10px] font-mono text-fg-subtle">{hint}</kbd>}
     </Command.Item>
   )
 }

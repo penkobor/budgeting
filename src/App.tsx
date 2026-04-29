@@ -1,6 +1,5 @@
 import { HashRouter, Route, Routes, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MotionConfig } from 'framer-motion'
 import { Layout } from '@/components/Layout'
 import { Dashboard } from '@/pages/Dashboard'
 import { Ledger } from '@/pages/Ledger'
@@ -13,7 +12,6 @@ import { AuthPage } from '@/pages/AuthPage'
 import { useAuth } from '@/hooks/useAuth'
 import { Loader2 } from 'lucide-react'
 import { ToastHost } from '@/components/ui/Toast'
-import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialog'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,17 +61,10 @@ function TopRoutes() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      {/* `reducedMotion="user"` makes every framer-motion animation honour the
-         OS-level `prefers-reduced-motion: reduce` setting, complementing the
-         CSS-level reset in `index.css`. */}
-      <MotionConfig reducedMotion="user">
-        <ConfirmDialogProvider>
-          <HashRouter>
-            <TopRoutes />
-          </HashRouter>
-          <ToastHost />
-        </ConfirmDialogProvider>
-      </MotionConfig>
+      <HashRouter>
+        <TopRoutes />
+      </HashRouter>
+      <ToastHost />
     </QueryClientProvider>
   )
 }

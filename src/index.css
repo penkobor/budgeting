@@ -8,27 +8,16 @@
   --bg-card: 255 255 255;
   --fg: 17 24 39;
   --fg-muted: 75 85 99;
-  /* Bumped from 156 163 175 (#9ca3af, 2.7:1) to 107 114 128 (#6b7280, 5.0:1)
-     so metadata text passes WCAG AA in light mode. */
-  --fg-subtle: 107 114 128;
+  --fg-subtle: 156 163 175;
   --border: 229 231 235;
   --border-strong: 209 213 219;
   /* Accent is intentionally neutral now — active controls use the foreground
      color so emphasis comes from contrast and shape, not hue. */
   --accent: 17 24 39;
   --accent-fg: 255 255 255;
-  /* Darker tints in light mode so positive/negative amount text passes
-     WCAG AA on bg-card. Dark-mode values (.dark below) already pass. */
-  --positive: 5 150 105;
-  --negative: 220 38 38;
-  --warning: 217 119 6;
-  /* Hardware-corner radius for floating chrome (mobile tab bar). 44px hugs
-     iPhone 14/15/16 screen curve; tighter on iPad / desktop. */
-  --device-radius: 22px;
-}
-
-@media (max-width: 767px) {
-  :root { --device-radius: 44px; }
+  --positive: 16 185 129;
+  --negative: 239 68 68;
+  --warning: 245 158 11;
 }
 
 .dark {
@@ -139,33 +128,6 @@ input[type="time"] {
   .label { @apply text-xs font-medium uppercase tracking-wider text-fg-muted; }
   .stat-num { @apply font-mono tabular-nums; }
 
-  /* ── Touch targets (HIG iOS ≥ 44 × 44 pt) ───────────────────────────
-     `.icon-btn` is the canonical 44px-square circular icon button: ghost
-     hover, active squish, used everywhere we'd previously have written a
-     `btn-ghost !p-1` / `!p-2` ad-hoc icon button.
-     `.tap` is a min-44 hit area for any inline interactive element — wrap a
-     small visual control in `.tap` to enlarge its hit box without changing
-     the visual size. */
-  .icon-btn {
-    @apply inline-flex items-center justify-center w-11 h-11 rounded-full text-fg-muted hover:bg-bg-elev hover:text-fg transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .icon-btn-destructive { @apply icon-btn text-negative hover:bg-negative/10 hover:text-negative; }
-  .tap { @apply relative min-w-[44px] min-h-[44px]; }
-
-  /* ── HIG grouped-form cell input (used inside `FormRow` cards) ───
-     iOS Settings-style: borderless transparent input that sits flush
-     against its row label. Right-aligned so the value reads next to
-     the label without a visible boundary. Body 17pt prevents iOS
-     zoom-on-focus. */
-  .ios-cell-input {
-    @apply flex-1 min-w-0 bg-transparent border-0 outline-none text-body text-right placeholder:text-fg-subtle;
-    appearance: none;
-    -webkit-appearance: none;
-  }
-  .ios-cell-input:focus { @apply text-accent; }
-  select.ios-cell-input { background-position: right 0 center; }
-
   /* ── Liquid Glass (Apple iOS 26 style, CSS-only, Safari-friendly) ───────── */
   .glass {
     position: relative;
@@ -211,27 +173,5 @@ input[type="time"] {
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .glass { background: rgb(var(--bg-card) / 0.92); }
     .dark .glass { background: rgb(var(--bg-card) / 0.92); }
-  }
-}
-
-/* ── prefers-reduced-motion (WCAG 2.3.3 / HIG accessibility) ──────────────
-   When the user opts out of motion at the OS level, suppress every animated
-   transition, the iOS-style press squish, and any keyframed entrance. The
-   `framer-motion` components also gate their own initial/animate via
-   `useReducedMotion()` where appropriate. */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-  .btn:active,
-  button:not(.btn):not([data-no-press]):active,
-  .glass:active {
-    transform: none !important;
-    filter: none !important;
   }
 }

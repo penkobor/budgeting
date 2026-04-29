@@ -67,7 +67,7 @@ export function MonthlyGoalCard({ yearMonth, projectedEnd, currency }: MonthlyGo
         ) : !goal ? (
           <>
             <div className="mt-1.5 text-xl md:text-2xl font-semibold">Set a goal</div>
-            <div className="text-[0.6875rem] md:text-xs text-fg-subtle mt-1">
+            <div className="text-[11px] md:text-xs text-fg-subtle mt-1">
               Target end-of-month balance — we’ll help you stay on track.
             </div>
           </>
@@ -80,7 +80,7 @@ export function MonthlyGoalCard({ yearMonth, projectedEnd, currency }: MonthlyGo
             >
               {formatMoney(Number(goal.amount), currency)}
             </div>
-            <div className="text-[0.6875rem] md:text-xs text-fg-subtle mt-1 stat-num">
+            <div className="text-[11px] md:text-xs text-fg-subtle mt-1 stat-num">
               {status === 'on-track'
                 ? `On track — projected ${formatMoney(projectedEnd, currency)}`
                 : `Short by ${formatMoney(Math.abs(delta), currency)} — projected ${formatMoney(
@@ -184,7 +184,7 @@ function GoalEditSheet({
             value={value}
             onChange={(e) => setValue(e.target.value.replace(/[^\d.,]/g, ''))}
             placeholder="0"
-            className="mt-1 w-full text-title-1 md:text-large-title font-semibold stat-num bg-bg-elev rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-accent/60"
+            className="mt-1 w-full text-2xl md:text-3xl font-semibold stat-num bg-bg-elev rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-accent/60"
           />
         </label>
 

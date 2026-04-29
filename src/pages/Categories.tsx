@@ -1,9 +1,7 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { useCategories, useDeleteCategory, useUpsertCategory } from '@/hooks/queries'
 import { Modal } from '@/components/ui/Modal'
-import { RowActions } from '@/components/ui/RowActions'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { Category } from '@/lib/db.types'
 
 const PALETTE = [
@@ -15,7 +13,6 @@ export function CategoriesPage() {
   const { data: categories = [] } = useCategories()
   const upsert = useUpsertCategory()
   const del = useDeleteCategory()
-  const confirm = useConfirm()
   const [editing, setEditing] = useState<Category | null>(null)
   const [adding, setAdding] = useState(false)
 
@@ -24,7 +21,7 @@ export function CategoriesPage() {
       <header className="flex items-center justify-between">
         <div>
           <div className="label">Categories</div>
-          <h1 className="text-title-1 md:text-large-title font-semibold mt-0.5">Tags &amp; colors</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">Tags &amp; colors</h1>
         </div>
         <button onClick={() => setAdding(true)} className="btn-primary"><Plus className="w-4 h-4" /> Add</button>
       </header>
@@ -32,23 +29,14 @@ export function CategoriesPage() {
       <div className="card divide-y divide-border">
         {categories.length === 0 && <div className="p-8 text-center text-sm text-fg-muted">No categories yet.</div>}
         {categories.map((c) => (
-          <div key={c.id} className="group flex items-center gap-3 p-4">
+          <div key={c.id} className="flex items-center gap-3 p-4">
             <span className="w-3 h-3 rounded-full shrink-0" style={{ background: c.color }} />
             <div className="flex-1 min-w-0">
               <div className="font-medium truncate">{c.name}</div>
               <div className="text-xs text-fg-subtle capitalize">{c.kind}</div>
             </div>
-            <RowActions
-              onEdit={() => setEditing(c)}
-              onDelete={async () => {
-                const ok = await confirm({
-                  title: 'Delete this category?',
-                  description: `“${c.name}” will be removed. Existing transactions keep their amounts but lose this label.`,
-                  destructive: true,
-                })
-                if (ok) del.mutate(c.id)
-              }}
-            />
+            <button onClick={() => setEditing(c)} className="btn-ghost !p-2"><Pencil className="w-4 h-4" /></button>
+            <button onClick={() => { if (confirm('Delete this category?')) del.mutate(c.id) }} className="btn-ghost !p-2 text-negative"><Trash2 className="w-4 h-4" /></button>
           </div>
         ))}
       </div>

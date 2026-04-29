@@ -72,7 +72,7 @@ export function GoalAlertRibbon() {
               You're projected to miss your monthly goal by{' '}
               <span className="stat-num">{formatMoney(overBy, currency)}</span>
             </div>
-            <div className="text-[0.6875rem] md:text-xs text-fg-muted mt-0.5 stat-num">
+            <div className="text-[11px] md:text-xs text-fg-muted mt-0.5 stat-num">
               Goal {formatMoney(Number(goal!.amount), currency)} · projected{' '}
               {formatMoney(projectedEnd, currency)}
             </div>

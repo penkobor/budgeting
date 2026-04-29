@@ -220,7 +220,7 @@ export function PlanLens() {
     <div className="space-y-4 md:space-y-6">
       <header>
         <div className="label">Plan</div>
-        <h1 className="text-title-1 md:text-large-title font-semibold mt-0.5">Big purchases</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">Big purchases</h1>
         <p className="text-fg-muted text-sm mt-1">
           Sketch out major spends and see how they reshape the next 12 months. Stays local until you
           commit it to the ledger.
@@ -232,7 +232,7 @@ export function PlanLens() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <div className="label">Drafted total</div>
-            <div className="stat-num text-title-1 md:text-large-title font-semibold mt-1">
+            <div className="stat-num text-2xl md:text-3xl font-semibold mt-1">
               {formatMoney(projection.totalDrafts, currency)}
             </div>
             <div className="text-xs text-fg-muted mt-1">
@@ -250,7 +250,7 @@ export function PlanLens() {
           <div>
             <div className="label">Lowest balance ahead</div>
             <div
-              className={`stat-num text-title-1 md:text-large-title font-semibold mt-1 ${projection.lowestWith + assetBoost < 0 ? 'text-negative' : ''}`}
+              className={`stat-num text-2xl md:text-3xl font-semibold mt-1 ${projection.lowestWith + assetBoost < 0 ? 'text-negative' : ''}`}
             >
               {formatMoney(projection.lowestWith + assetBoost, currency)}
             </div>

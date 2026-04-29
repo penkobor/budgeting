@@ -182,7 +182,6 @@
   },
   "active": "dfbbbfc62232319f",
   "lastOpenFiles": [
-    "Learnings/Patterns/HIG-Audit-2026-04-28.md",
     "Tickets/BUDG-022 — FEAT | Shared Redistribution/Implementation/Log/BUDG-022 - 2026-04-28 - phase7-optimistic-and-pulse.md",
     "Tickets/BUDG-022 — FEAT | Shared Redistribution/Implementation/Log/BUDG-022 - 2026-04-28 - phase5-mobile-long-press.md",
     "Tickets/BUDG-022 — FEAT | Shared Redistribution/Implementation/Log/BUDG-022 - 2026-04-28 - phase6-quickadd-shared-event.md",
@@ -216,6 +215,7 @@
     "Tickets/BUDG-009 — UX | Liquid Glass refinements/ADR/BUDG-009 - ADR-001 - Skip SVG-displacement refraction on iOS Safari.md",
     "Tickets/BUDG-008 — UX | iOS motion polish/Implementation/Log/BUDG-008 - 2026-04-27 - view-transitions-and-active-pill.md",
     "Tickets/BUDG-007 — INFRA | Cold-restart resilience/Implementation/Log/BUDG-007 - 2026-04-27 - query-cache-persist-and-route-memory.md",
+    "Tickets/BUDG-007 — INFRA | Cold-restart resilience/ADR/BUDG-007 - ADR-001 - IndexedDB query-cache persistence via idb-keyval.md",
     "Tickets/BUDG-010 — FEAT | iOS push and app badge/Implementation/Log",
     "Tickets/BUDG-010 — FEAT | iOS push and app badge/QA",
     "Pasted image 20260426235354.png",

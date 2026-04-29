@@ -134,7 +134,7 @@ export function MonthLens() {
       <header className="flex flex-wrap items-center gap-3 justify-between">
         <div>
           <div className="label">Overview</div>
-          <h1 className="text-title-1 md:text-large-title font-semibold mt-0.5">{monthLabel}</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">{monthLabel}</h1>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} className="btn-outline">←</button>
@@ -260,7 +260,7 @@ function Kpi({ label, value, sub, tone = 'default', icon }: {
         {icon && <span className={toneClass}>{icon}</span>}
       </div>
       <div className={`mt-1.5 md:mt-2 text-xl md:text-2xl font-semibold stat-num ${toneClass}`}>{value}</div>
-      {sub && <div className="text-[0.6875rem] md:text-xs text-fg-subtle mt-1 stat-num">{sub}</div>}
+      {sub && <div className="text-[11px] md:text-xs text-fg-subtle mt-1 stat-num">{sub}</div>}
     </motion.div>
   )
 }
@@ -324,7 +324,7 @@ function UpcomingList({ items, fromIso, currency }: {
               <div className="text-sm font-medium truncate flex items-center gap-2">
                 <span className="truncate">{i.description}</span>
                 {i.recurring && (
-                  <span className="text-[0.625rem] text-fg-subtle uppercase tracking-wider shrink-0">recurring</span>
+                  <span className="text-[10px] text-fg-subtle uppercase tracking-wider shrink-0">recurring</span>
                 )}
               </div>
               <div className="text-xs text-fg-subtle stat-num">{i.date}</div>

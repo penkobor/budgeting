@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { haptics } from '@/lib/haptics'
 
 type Theme = 'light' | 'dark'
 
@@ -21,10 +20,7 @@ export const useUi = create<UiState>()(
         document.documentElement.classList.toggle('dark', t === 'dark')
         set({ theme: t })
       },
-      toggleTheme: () => {
-        haptics.selection()
-        get().setTheme(get().theme === 'dark' ? 'light' : 'dark')
-      },
+      toggleTheme: () => get().setTheme(get().theme === 'dark' ? 'light' : 'dark'),
       setPaletteOpen: (open) => set({ paletteOpen: open }),
     }),
     { name: 'budgeting-ui' }

@@ -1,5 +1,4 @@
 import { useSearchParams } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import { Sun, Calendar, CalendarDays, TrendingUp, ShoppingBag, Share2 } from 'lucide-react'
 import { TodayLens } from './lenses/TodayLens'
 import { WeekLens } from './lenses/WeekLens'
@@ -8,7 +7,6 @@ import { ForecastLens } from './lenses/ForecastLens'
 import { PlanLens } from './lenses/PlanLens'
 import { SharedLens } from './lenses/SharedLens'
 import { GoalAlertRibbon } from '@/components/GoalAlertRibbon'
-import { haptics } from '@/lib/haptics'
 
 const LENSES = [
   { id: 'today', label: 'Today', icon: Sun },
@@ -31,7 +29,6 @@ export function Dashboard() {
   const lens: LensId = isLens(param) ? param : 'today'
 
   const setLens = (id: LensId) => {
-    if (id !== lens) haptics.selection()
     const next = new URLSearchParams(params)
     if (id === 'today') next.delete('lens')
     else next.set('lens', id)
@@ -40,35 +37,19 @@ export function Dashboard() {
 
   return (
     <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto">
-      {/* Lens switcher — HIG-style segmented control: a single glass track with a
-         sliding accent pill that animates between segments via framer-motion's
-         shared `layoutId`. Wraps to a horizontal scroller on narrow viewports
-         since six segments don't fit on a phone width. */}
-      <div className="sticky top-[max(env(safe-area-inset-top),0px)] md:top-0 z-30 -mx-4 md:-mx-8 px-4 md:px-8 py-2 -mt-4 md:-mt-8 mb-2 pointer-events-none">
-        <div className="pointer-events-auto inline-flex glass rounded-full p-1 gap-0.5 max-w-full overflow-x-auto">
+      {/* Period switcher — floating liquid-glass pills (no bar bg, each chip is its own glass element) */}
+      <div className="sticky top-[calc(env(safe-area-inset-top)-0.25rem)] md:top-0 z-30 -mx-4 md:-mx-8 px-4 md:px-8 py-2 -mt-4 md:-mt-8 mb-2 pointer-events-none">
+        <div className="flex gap-2 overflow-x-auto -mx-1 px-1 py-1 pointer-events-auto">
           {LENSES.map(({ id, label, icon: Icon }) => {
             const active = lens === id
             return (
               <button
                 key={id}
                 onClick={() => setLens(id)}
-                aria-pressed={active}
-                className={`relative shrink-0 inline-flex items-center gap-1.5 px-3.5 min-h-[36px] rounded-full text-callout font-medium transition-colors ${
-                  active ? 'text-accent-fg' : 'text-fg-muted hover:text-fg'
-                }`}
+                className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all ${active ? 'bg-accent text-accent-fg shadow-soft' : 'glass text-fg hover:text-fg'}`}
               >
-                {active && (
-                  <motion.span
-                    layoutId="lens-pill"
-                    className="absolute inset-0 rounded-full bg-accent shadow-soft"
-                    transition={{ type: 'spring', stiffness: 420, damping: 36 }}
-                    aria-hidden
-                  />
-                )}
-                <span className="relative z-10 inline-flex items-center gap-1.5">
-                  <Icon className="w-4 h-4" />
-                  {label}
-                </span>
+                <Icon className="w-4 h-4" />
+                {label}
               </button>
             )
           })}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronRight, ListChecks, Square, SquareCheckBig, X } from 'lucide-react'
+import { Beer, ChevronRight, ListChecks, Pencil, Square, SquareCheckBig, Trash2, X } from 'lucide-react'
 import {
   useCategories, useDeleteTransaction, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules,
   useSettings, useTransactionsInRange,
@@ -9,9 +9,6 @@ import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
 import { Modal } from '@/components/ui/Modal'
-import { RowActions } from '@/components/ui/RowActions'
-import { SwipeableRow } from '@/components/ui/SwipeableRow'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { Transaction } from '@/lib/db.types'
 
 export function Ledger() {
@@ -29,7 +26,6 @@ export function Ledger() {
   const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
   const { data: personalCategories = [] } = useCategories()
   const deleteTx = useDeleteTransaction()
-  const confirm = useConfirm()
 
   const currency = settings?.currency ?? 'CZK'
   const catMap = useMemo(
@@ -272,7 +268,7 @@ export function Ledger() {
       {/* Title: normal flow, scrolls away with content */}
       <div>
         <div className="label">Ledger</div>
-        <h1 className="text-title-2 md:text-large-title font-semibold mt-0.5">{monthLabel}</h1>
+        <h1 className="text-xl md:text-3xl font-semibold mt-0.5">{monthLabel}</h1>
       </div>
 
       {/* Floating glass pill toolbar — sticky relative to the page wrapper so
@@ -366,13 +362,7 @@ export function Ledger() {
               >
                 {row.day}
                 {isWeekend && !isToday && !isSelected && (
-                  <span
-                    aria-hidden
-                    className="absolute -top-1.5 -right-1.5 text-[0.625rem] leading-none drop-shadow pointer-events-none"
-                    style={{ filter: 'saturate(1.1)' }}
-                  >
-                    🍻
-                  </span>
+                  <Beer aria-hidden className="absolute -top-1 -right-1 w-3 h-3 text-amber-400 drop-shadow" />
                 )}
               </button>
             </div>
@@ -441,45 +431,29 @@ export function Ledger() {
                 )}
                 {row.txs.map((t) => {
                   const cat = txCat(t)
-                  const editAction = () => setEditing(t)
-                  const deleteAction = async () => {
-                    const ok = await confirm({
-                      title: 'Delete this entry?',
-                      description: txDescription(t)
-                        ? `“${txDescription(t)}” will be removed permanently.`
-                        : 'This entry will be removed permanently.',
-                      destructive: true,
-                    })
-                    if (ok) deleteTx.mutate(t.id)
-                  }
                   return (
-                    <SwipeableRow
-                      key={t.id}
-                      onEdit={editAction}
-                      onDelete={deleteAction}
-                    >
-                      <div className="group flex items-center gap-2 text-sm min-w-0 px-1 py-1">
-                        <span
-                          className="w-1.5 h-1.5 rounded-full shrink-0"
-                          style={{ background: cat?.color ?? '#888' }}
-                        />
-                        <span className="truncate text-fg">{txDescription(t)}</span>
-                        {t.is_shared && (
-                          <span
-                            className="shrink-0 text-[0.625rem] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent"
-                            title="Visible on your public share page"
-                          >
-                            shared
-                          </span>
-                        )}
-                        <span className={`stat-num text-xs ml-1 ${Number(t.amount) >= 0 ? 'text-positive' : 'text-negative'}`}>
-                          {formatMoney(Number(t.amount), currency)}
-                        </span>
-                        <div className="ml-auto hidden md:block">
-                          <RowActions onEdit={editAction} onDelete={deleteAction} size="sm" />
-                        </div>
-                      </div>
-                    </SwipeableRow>
+                  <div key={t.id} className="group flex items-center gap-2 text-sm min-w-0">
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ background: cat?.color ?? '#888' }}
+                    />
+                    <span className="truncate text-fg">{txDescription(t)}</span>
+                    {t.is_shared && (
+                      <span
+                        className="shrink-0 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent"
+                        title="Visible on your public share page"
+                      >
+                        shared
+                      </span>
+                    )}
+                    <span className={`stat-num text-xs ml-1 ${Number(t.amount) >= 0 ? 'text-positive' : 'text-negative'}`}>
+                      {formatMoney(Number(t.amount), currency)}
+                    </span>
+                    <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => setEditing(t)} className="btn-ghost !p-1" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => deleteTx.mutate(t.id)} className="btn-ghost !p-1 text-negative" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
+                  </div>
                   )
                 })}
                 {row.pending.map((p) => (
@@ -493,10 +467,10 @@ export function Ledger() {
                       style={{ background: p.categoryId ? catMap[p.categoryId]?.color ?? 'transparent' : 'transparent' }}
                     />
                     <span className="truncate">{p.description}</span>
-                    <span className="text-[0.625rem] text-fg-subtle uppercase tracking-wider shrink-0">recurring</span>
+                    <span className="text-[10px] text-fg-subtle uppercase tracking-wider shrink-0">recurring</span>
                     {p.overridden && (
                       <span
-                        className="text-[0.625rem] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent shrink-0"
+                        className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent shrink-0"
                         title={`Trimmed from ${formatMoney(p.originalAmount, currency)} via rebalance`}
                       >
                         trimmed
@@ -505,29 +479,32 @@ export function Ledger() {
                     <span className={`stat-num text-xs ml-1 ${p.amount >= 0 ? 'text-positive' : 'text-negative'}`}>
                       {formatMoney(p.amount, currency)}
                       {p.overridden && (
-                        <span className="ml-1 text-fg-subtle line-through text-[0.625rem]">
+                        <span className="ml-1 text-fg-subtle line-through text-[10px]">
                           {formatMoney(p.originalAmount, currency)}
                         </span>
                       )}
                     </span>
-                    <div className="ml-auto">
-                      <RowActions
-                        onEdit={() => setEditingPending({
+                    <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => setEditingPending({
                           rule_id: p.rule_id,
                           date: row.date,
                           amount: p.amount,
                           description: p.description,
                           categoryId: p.categoryId,
                         })}
-                        size="sm"
-                      />
+                        className="btn-ghost !p-1"
+                        title="Edit for this day (creates a per-day override, doesn't change the rule)"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))}
                 {(row.txs.length > 0 || row.pending.length > 0) && (
                   <button
                     onClick={() => setAddForDate(row.date)}
-                    className="text-[0.6875rem] text-fg-subtle hover:text-accent transition-colors"
+                    className="text-[11px] text-fg-subtle hover:text-accent transition-colors"
                   >
                     + add entry
                   </button>
@@ -678,7 +655,7 @@ export function Ledger() {
                   <div key={i.key} className="flex items-center justify-between gap-3 py-2">
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate">{i.description}</div>
-                      <div className="text-[0.6875rem] text-fg-subtle stat-num">{i.date}</div>
+                      <div className="text-[11px] text-fg-subtle stat-num">{i.date}</div>
                     </div>
                     <div className={`stat-num text-sm ${i.amount >= 0 ? 'text-positive' : 'text-negative'}`}>
                       {formatMoney(i.amount, currency)}

@@ -275,7 +275,7 @@ export function SharedLens() {
       <header className="card p-4 md:p-5">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <div className="inline-flex items-center gap-2 text-[0.6875rem] uppercase tracking-wider text-fg-subtle">
+            <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-wider text-fg-subtle">
               <Share2 className="w-3 h-3" /> Shared bag
             </div>
             <h2 className="font-semibold text-lg mt-1">
@@ -372,12 +372,12 @@ export function SharedLens() {
                     <span className="flex-1 min-w-0 truncate">
                       {e.label}
                       {e.recurring && (
-                        <span className="ml-1.5 text-[0.625rem] uppercase tracking-wider text-fg-subtle">
+                        <span className="ml-1.5 text-[10px] uppercase tracking-wider text-fg-subtle">
                           recurring
                         </span>
                       )}
                       {e.overridden && (
-                        <span className="ml-1.5 text-[0.625rem] uppercase tracking-wider text-accent">
+                        <span className="ml-1.5 text-[10px] uppercase tracking-wider text-accent">
                           adjusted
                         </span>
                       )}
@@ -449,7 +449,7 @@ export function SharedLens() {
       {pickerSrc && (
         <div className="fixed bottom-0 inset-x-0 z-40 bg-bg-elev/95 backdrop-blur border-t border-border p-3 flex items-center gap-3 shadow-lg">
           <div className="flex-1 min-w-0">
-            <div className="text-[0.6875rem] uppercase tracking-wider text-fg-subtle">
+            <div className="text-[11px] uppercase tracking-wider text-fg-subtle">
               Picking from
             </div>
             <div className="text-sm truncate">
@@ -459,7 +459,7 @@ export function SharedLens() {
                 {formatMoney(Math.abs(pickerSrc.amount), currency)}
               </span>
             </div>
-            <div className="text-[0.6875rem] text-fg-subtle mt-0.5">
+            <div className="text-[11px] text-fg-subtle mt-0.5">
               Tap a highlighted row or drop zone to receive
             </div>
           </div>
@@ -597,7 +597,7 @@ function CalculatorBubble(props: {
     <div className="fixed bottom-4 right-4 z-40 max-w-[calc(100vw-2rem)]">
       <div className="card shadow-lg p-3 flex items-center gap-3 bg-bg-elev/95 backdrop-blur border border-accent/40">
         <div className="min-w-0">
-          <div className="text-[0.625rem] uppercase tracking-wider text-fg-subtle">
+          <div className="text-[10px] uppercase tracking-wider text-fg-subtle">
             Calculator
           </div>
           <div className="text-xs text-fg-muted">
@@ -732,7 +732,7 @@ function CreateFromDropModal(props: {
               {formatMoney(amount, currency)}
             </span>
           </div>
-          <div className="text-[0.6875rem] text-fg-subtle mt-1">
+          <div className="text-[11px] text-fg-subtle mt-1">
             Source remaining after move:{' '}
             <span className="stat-num">{formatMoney(Math.max(0, max - amount), currency)}</span>
           </div>

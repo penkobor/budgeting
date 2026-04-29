@@ -8,7 +8,6 @@ import { useAssets, useMonthlyOpening, useRecurringOverridesInRange, useRecurrin
 import { formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
-import { HeroFigure } from '@/components/ui/HeroFigure'
 
 type Horizon = 1 | 3 | 6 | 12
 
@@ -165,7 +164,7 @@ export function ForecastLens() {
     <div className="space-y-4 md:space-y-6">
       <header>
         <div className="label">Forecast</div>
-        <h1 className="text-title-1 md:text-large-title font-semibold mt-0.5">Where you're heading</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">Where you're heading</h1>
       </header>
 
       {/* Horizon chips */}
@@ -187,30 +186,19 @@ export function ForecastLens() {
         animate={{ opacity: 1, y: 0 }}
         className="card p-5 md:p-7"
       >
-        {(() => {
-          const projected =
-            (scenarioActive ? last?.scenarioBalance ?? 0 : last?.baselineBalance ?? 0) +
-            assetBoost
-          const baseline = opening0 + assetBoost
-          return (
-            <HeroFigure
-              eyebrow={<>Projected balance · {last?.label}</>}
-              value={formatMoney(projected, currency)}
-              tone={projected >= baseline ? 'positive' : 'negative'}
-              sublabel={
-                <span className="stat-num">
-                  From opening {formatMoney(opening0 + assetBoost, currency)}
-                  {scenarioActive && (
-                    <> · baseline {formatMoney((last?.baselineBalance ?? 0) + assetBoost, currency)}</>
-                  )}
-                  {assetBoost > 0 && (
-                    <> · incl. assets {formatMoney(assetBoost, currency)}</>
-                  )}
-                </span>
-              }
-            />
-          )
-        })()}
+        <div className="label mb-1">Projected balance · {last?.label}</div>
+        <div className={`stat-num font-semibold text-3xl md:text-4xl ${(scenarioActive ? (last?.scenarioBalance ?? 0) : (last?.baselineBalance ?? 0)) + assetBoost >= opening0 + assetBoost ? 'text-positive' : 'text-negative'}`}>
+          {formatMoney((scenarioActive ? last?.scenarioBalance ?? 0 : last?.baselineBalance ?? 0) + assetBoost, currency)}
+        </div>
+        <div className="text-xs md:text-sm text-fg-subtle mt-2 stat-num">
+          From opening {formatMoney(opening0 + assetBoost, currency)}
+          {scenarioActive && (
+            <> · baseline {formatMoney((last?.baselineBalance ?? 0) + assetBoost, currency)}</>
+          )}
+          {assetBoost > 0 && (
+            <> · incl. assets {formatMoney(assetBoost, currency)}</>
+          )}
+        </div>
       </motion.section>
 
       {/* Chart */}
@@ -266,7 +254,7 @@ export function ForecastLens() {
                 setSalaryDelta(Number.isNaN(n) ? 0 : n)
               }}
             />
-            <div className="text-[0.6875rem] text-fg-subtle mt-1">
+            <div className="text-[11px] text-fg-subtle mt-1">
               {salaryDelta === 0 ? 'No change.' : `${salaryDelta > 0 ? '+' : ''}${formatMoney(salaryDelta, currency)} added each month.`}
             </div>
           </div>
@@ -282,7 +270,7 @@ export function ForecastLens() {
                 setSpendDeltaPct(Number.isNaN(n) ? 0 : n)
               }}
             />
-            <div className="text-[0.6875rem] text-fg-subtle mt-1">
+            <div className="text-[11px] text-fg-subtle mt-1">
               {spendDeltaPct === 0 ? 'No change.' : `Recurring spend ${spendDeltaPct > 0 ? 'up' : 'down'} ${Math.abs(spendDeltaPct)}%.`}
             </div>
           </div>

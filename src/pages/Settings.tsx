@@ -8,7 +8,6 @@ import { supabase } from '@/lib/supabase'
 import { APP_VERSION, BUILD_SHA, BUILD_TIME, formatBuildTime } from '@/lib/version'
 import { useShareLink, useUpsertShareLink, useDisableShareLink, buildShareUrl } from '@/hooks/share'
 import { pushToast } from '@/components/ui/Toast'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
 
 export function SettingsPage() {
   const { data: settings } = useSettings()
@@ -20,7 +19,7 @@ export function SettingsPage() {
     <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-2xl mx-auto">
       <header>
         <div className="label">Account</div>
-        <h1 className="text-title-1 md:text-large-title font-semibold mt-0.5">Settings</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">Settings</h1>
       </header>
 
       <section className="card p-4 md:p-5 space-y-3 md:space-y-4">
@@ -82,7 +81,7 @@ export function SettingsPage() {
           <br />
           <span className="text-fg-muted" title={BUILD_TIME}>built {formatBuildTime()}</span>
         </p>
-        <p className="text-[0.6875rem] text-fg-muted">
+        <p className="text-[11px] text-fg-muted">
           Use this to confirm a fresh deploy landed — the SHA changes on every commit.
         </p>
       </section>
@@ -94,7 +93,6 @@ function ShareLinkSection() {
   const { data: link, isLoading } = useShareLink()
   const upsert = useUpsertShareLink()
   const disable = useDisableShareLink()
-  const confirm = useConfirm()
   const [draftName, setDraftName] = useState('')
   const [copied, setCopied] = useState(false)
 
@@ -128,13 +126,7 @@ function ShareLinkSection() {
   }
 
   const onDisable = async () => {
-    const ok = await confirm({
-      title: 'Disable the share link?',
-      description: 'The current URL will stop working. Anyone who has it will see a “not found” page.',
-      destructive: true,
-      confirmLabel: 'Disable',
-    })
-    if (!ok) return
+    if (!confirm('Disable the share link? The current URL will stop working.')) return
     try {
       await disable.mutateAsync()
       pushToast('Share link disabled')
@@ -180,7 +172,7 @@ function ShareLinkSection() {
             onChange={(e) => setDraftName(e.target.value)}
             maxLength={80}
           />
-          <p className="text-[0.6875rem] text-fg-subtle">
+          <p className="text-[11px] text-fg-subtle">
             Visitors will see “{draftName.trim() || 'Your name'} plans:” as the page header.
           </p>
           <button onClick={onEnable} className="btn-primary w-full" disabled={upsert.isPending}>
@@ -214,7 +206,7 @@ function ShareLinkSection() {
                 {copied ? <Check className="w-4 h-4 text-positive" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-[0.6875rem] text-fg-subtle mt-1.5">
+            <p className="text-[11px] text-fg-subtle mt-1.5">
               Anyone with this link can view entries you’ve marked as shared. No password.
             </p>
           </div>

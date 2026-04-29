@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Plus, ToggleLeft, ToggleRight, Share2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Share2 } from 'lucide-react'
 import {
   useCategories,
   useDeleteRule,
@@ -9,8 +9,6 @@ import {
 } from '@/hooks/queries'
 import { useSettings } from '@/hooks/queries'
 import { Modal } from '@/components/ui/Modal'
-import { RowActions } from '@/components/ui/RowActions'
-import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { describeRule, expandRuleInRange } from '@/lib/recurring'
 import { formatMoney, isoDate } from '@/lib/utils'
 import type { RecurringRule } from '@/lib/db.types'
@@ -21,7 +19,6 @@ export function RecurringPage() {
   const { data: upcomingOverrides = [] } = useUpcomingRecurringOverrides()
   const upsert = useUpsertRule()
   const del = useDeleteRule()
-  const confirm = useConfirm()
   const currency = settings?.currency ?? 'CZK'
 
   // Group upcoming overrides by rule id for the trim-count badge.
@@ -68,7 +65,7 @@ export function RecurringPage() {
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="label">Fixed payments</div>
-          <h1 className="text-title-1 md:text-large-title font-semibold mt-0.5">
+          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">
             Recurring rules
           </h1>
           <p className="text-xs md:text-sm text-fg-muted mt-1.5 max-w-prose">
@@ -88,13 +85,11 @@ export function RecurringPage() {
           const monthly = monthlyByRule[r.id]
           const trimInfo = overridesByRule[r.id]
           return (
-          <div key={r.id} className="group flex items-center gap-3 p-4">
+          <div key={r.id} className="flex items-center gap-3 p-4">
             <button
-              type="button"
               onClick={() => upsert.mutate({ ...r, active: !r.active })}
-              className={`shrink-0 w-11 h-11 grid place-items-center rounded-full hover:bg-bg-elev transition-colors ${r.active ? 'text-positive' : 'text-fg-subtle'}`}
+              className={`shrink-0 ${r.active ? 'text-positive' : 'text-fg-subtle'}`}
               title={r.active ? 'Active' : 'Paused'}
-              aria-label={r.active ? 'Pause rule' : 'Activate rule'}
             >
               {r.active ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
             </button>
@@ -103,7 +98,7 @@ export function RecurringPage() {
                 <span className="truncate">{r.name}</span>
                 {r.is_shared && (
                   <span
-                    className="shrink-0 inline-flex items-center gap-0.5 text-[0.625rem] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent"
+                    className="shrink-0 inline-flex items-center gap-0.5 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent"
                     title="Visible on your public share page"
                   >
                     <Share2 className="w-2.5 h-2.5" /> shared
@@ -111,7 +106,7 @@ export function RecurringPage() {
                 )}
                 {trimInfo && (trimInfo.trimmed + trimInfo.skipped) > 0 && (
                   <span
-                    className="shrink-0 text-[0.625rem] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent"
+                    className="shrink-0 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent"
                     title={`${trimInfo.trimmed} trimmed, ${trimInfo.skipped} skipped (upcoming overrides from rebalance)`}
                   >
                     {trimInfo.skipped > 0 && trimInfo.trimmed === 0
@@ -138,17 +133,10 @@ export function RecurringPage() {
             <div className={`stat-num font-semibold ${r.kind === 'income' ? 'text-positive' : 'text-negative'}`}>
               {r.kind === 'income' ? '+' : '−'}{formatMoney(r.amount, currency)}
             </div>
-            <RowActions
-              onEdit={() => setEditing(r)}
-              onDelete={async () => {
-                const ok = await confirm({
-                  title: 'Delete this rule?',
-                  description: `“${r.name}” will stop generating future planned entries. Past realised transactions are kept.`,
-                  destructive: true,
-                })
-                if (ok) del.mutate(r.id)
-              }}
-            />
+            <div className="flex gap-1">
+              <button onClick={() => setEditing(r)} className="btn-ghost !p-2"><Pencil className="w-4 h-4" /></button>
+              <button onClick={() => { if (confirm('Delete this rule?')) del.mutate(r.id) }} className="btn-ghost !p-2 text-negative"><Trash2 className="w-4 h-4" /></button>
+            </div>
           </div>
           )
         })}
@@ -299,7 +287,7 @@ function RuleForm({ rule, open, onClose }: { rule: RecurringRule | null; open: b
                 )
               })}
             </div>
-            <div className="text-[0.6875rem] text-fg-subtle mt-1.5">
+            <div className="text-[11px] text-fg-subtle mt-1.5">
               Repeats every {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][parseInt(dayOfWeek, 10)] ?? 'Monday'}.
             </div>
           </div>
@@ -333,7 +321,7 @@ function RuleForm({ rule, open, onClose }: { rule: RecurringRule | null; open: b
           />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium">Show on my public share page</div>
-            <div className="text-[0.6875rem] text-fg-subtle">
+            <div className="text-[11px] text-fg-subtle">
               All upcoming occurrences of this rule will appear in the public view.
             </div>
           </div>
