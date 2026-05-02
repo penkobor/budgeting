@@ -1,27 +1,32 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Trash2, ShoppingBag, Send } from 'lucide-react'
+import { Plus, Trash2, ShoppingBag, Send, CalendarClock } from 'lucide-react'
 import {
   CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import {
   useAssets,
+  useCategories,
+  useDeleteTransaction,
   useInsertTransactions,
   useMonthlyOpening,
   useRecurringOverridesInRange,
   useRecurringRules,
   useSettings,
   useTransactionsInRange,
+  useUpsertTransaction,
 } from '@/hooks/queries'
 import { formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
+import type { Transaction } from '@/lib/db.types'
 
 type Draft = {
   id: string
   label: string
   amount: number // positive number, treated as expense
   date: string // ISO yyyy-mm-dd
+  isShared?: boolean
 }
 
 const STORAGE_KEY = 'plan-drafts-v1'
@@ -54,8 +59,16 @@ export function PlanLens() {
   const { data: settings } = useSettings()
   const { data: opening } = useMonthlyOpening(monthIso)
   const { data: rules = [] } = useRecurringRules()
+  const { data: categories = [] } = useCategories()
   const insert = useInsertTransactions()
+  const deleteTx = useDeleteTransaction()
+  const upsertTx = useUpsertTransaction()
   const currency = settings?.currency ?? 'CZK'
+
+  const catMap = useMemo(
+    () => Object.fromEntries(categories.map((c) => [c.id, c])),
+    [categories],
+  )
 
   // Same 12-month horizon ForecastLens uses for the longest view.
   const horizonMonths = 12
@@ -85,6 +98,68 @@ export function PlanLens() {
   const [newLabel, setNewLabel] = useState('')
   const [newAmount, setNewAmount] = useState('')
   const [newDate, setNewDate] = useState(isoDate(today))
+  const [newShared, setNewShared] = useState(false)
+
+  // Inline amount edit state for the upcoming-ledger list.
+  // We store the raw string so partial edits (e.g. "1.") don't bounce.
+  const [inlineEdit, setInlineEdit] = useState<{ id: string; value: string } | null>(null)
+  const inlineInputRef = useRef<HTMLInputElement | null>(null)
+  useEffect(() => {
+    if (inlineEdit) {
+      inlineInputRef.current?.focus()
+      inlineInputRef.current?.select()
+    }
+  }, [inlineEdit?.id])
+
+  function commitInlineEdit(t: Transaction) {
+    if (!inlineEdit || inlineEdit.id !== t.id) return
+    const parsed = Number(inlineEdit.value.replace(',', '.'))
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setInlineEdit(null)
+      return
+    }
+    const nextAmount = -Math.abs(parsed)
+    if (Math.abs(nextAmount - Number(t.amount)) < 0.005) {
+      setInlineEdit(null)
+      return
+    }
+    upsertTx.mutate(
+      {
+        id: t.id,
+        amount: nextAmount,
+        occurred_on: t.occurred_on,
+        description: t.description,
+        category_id: t.category_id,
+        recurring_rule_id: t.recurring_rule_id,
+        planned: t.planned,
+        is_shared: t.is_shared,
+      } as never,
+      { onSettled: () => setInlineEdit(null) },
+    )
+  }
+
+  // Upcoming one-off (non-recurring) expenses already on the ledger.
+  // Source of truth = transactions table (same hook Ledger uses).
+  // Filter: future-dated (>= today), expense (amount < 0), not generated
+  // from a recurring rule. These are the "big nonstandard" purchases that
+  // are easy to lose track of.
+  const upcomingNonRecurring = useMemo(() => {
+    const todayIso = isoDate(today)
+    return txs
+      .filter(
+        (t) =>
+          !t.recurring_rule_id &&
+          Number(t.amount) < 0 &&
+          t.occurred_on >= todayIso,
+      )
+      .slice()
+      .sort((a, b) => a.occurred_on.localeCompare(b.occurred_on))
+  }, [txs, today])
+
+  const upcomingTotal = useMemo(
+    () => upcomingNonRecurring.reduce((s, t) => s + Math.abs(Number(t.amount)), 0),
+    [upcomingNonRecurring],
+  )
 
   function addDraft(e: React.FormEvent) {
     e.preventDefault()
@@ -97,11 +172,19 @@ export function PlanLens() {
         label: newLabel.trim() || 'Big purchase',
         amount: amt,
         date: newDate,
+        isShared: newShared,
       },
     ])
     setNewLabel('')
     setNewAmount('')
     setNewDate(isoDate(today))
+    setNewShared(false)
+  }
+
+  function toggleDraftShared(id: string) {
+    setDrafts((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, isShared: !d.isShared } : d)),
+    )
   }
 
   function removeDraft(id: string) {
@@ -116,7 +199,8 @@ export function PlanLens() {
         description: d.label,
         planned: true,
         category_id: null,
-      },
+        is_shared: d.isShared ?? false,
+      } as never,
     ])
     removeDraft(d.id)
   }
@@ -326,6 +410,114 @@ export function PlanLens() {
         </div>
       </motion.div>
 
+      {/* Upcoming non-recurring ledger expenses */}
+      <section className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <div className="label">Upcoming on the ledger</div>
+            <h2 className="text-lg md:text-xl font-semibold mt-0.5">One-off planned expenses</h2>
+            <p className="text-fg-muted text-xs md:text-sm mt-1">
+              Future-dated entries already in the ledger that aren't recurring.
+              Edit or delete them here — changes apply to the same source as Ledger.
+            </p>
+          </div>
+          {upcomingNonRecurring.length > 0 && (
+            <div className="text-right shrink-0">
+              <div className="label">Total</div>
+              <div className="stat-num text-base md:text-lg font-semibold text-negative mt-0.5">
+                −{formatMoney(upcomingTotal, currency)}
+              </div>
+              <div className="text-[11px] text-fg-muted">
+                {upcomingNonRecurring.length} item{upcomingNonRecurring.length === 1 ? '' : 's'}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {upcomingNonRecurring.length === 0 ? (
+          <div className="card p-8 text-center text-fg-muted">
+            <CalendarClock className="w-8 h-8 mx-auto mb-2 opacity-60" />
+            <div className="text-sm">
+              No future one-off expenses on the ledger. Big purchases you add to the
+              ledger with a future date will show up here.
+            </div>
+          </div>
+        ) : (
+          <div className="card divide-y divide-border overflow-hidden">
+            {upcomingNonRecurring.map((t) => {
+              const cat = t.category_id ? catMap[t.category_id] : undefined
+              const label = t.description?.trim() || cat?.name || 'Untitled'
+              const amt = Math.abs(Number(t.amount))
+              return (
+                <div key={t.id} className="p-4 flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium truncate">{label}</div>
+                    <div className="text-xs text-fg-muted flex items-center gap-2 mt-0.5">
+                      <span className="stat-num">
+                        {new Date(t.occurred_on).toLocaleDateString(undefined, {
+                          day: 'numeric',
+                          month: 'short',
+                          year: '2-digit',
+                        })}
+                      </span>
+                      {cat && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: cat.color ?? 'rgb(var(--fg-subtle))' }}
+                          />
+                          {cat.name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {inlineEdit?.id === t.id ? (
+                    <input
+                      ref={inlineInputRef}
+                      className="input stat-num text-right font-semibold tabular-nums w-28 !py-1.5"
+                      inputMode="decimal"
+                      value={inlineEdit.value}
+                      onChange={(e) =>
+                        setInlineEdit({ id: t.id, value: e.target.value })
+                      }
+                      onBlur={() => commitInlineEdit(t)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          commitInlineEdit(t)
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault()
+                          setInlineEdit(null)
+                        }
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setInlineEdit({ id: t.id, value: String(amt) })}
+                      className="stat-num font-semibold tabular-nums text-negative hover:underline decoration-dotted underline-offset-4"
+                      title="Tap to edit amount"
+                    >
+                      −{formatMoney(amt, currency)}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => deleteTx.mutate(t.id)}
+                    className="btn-ghost text-fg-muted"
+                    aria-label="Delete transaction"
+                    title="Delete"
+                    disabled={deleteTx.isPending}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
       {/* Add new draft */}
       <form onSubmit={addDraft} className="card p-4 md:p-5 space-y-3">
         <div className="label">Add a planned purchase</div>
@@ -355,6 +547,20 @@ export function PlanLens() {
             Add draft
           </button>
         </div>
+        <label className="flex items-center gap-2.5 rounded-xl border border-border p-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={newShared}
+            onChange={(e) => setNewShared(e.target.checked)}
+            className="w-4 h-4"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium">Show on my public share page when committed</div>
+            <div className="text-[11px] text-fg-subtle">
+              Anyone with your share link can see this entry. Toggle in Settings.
+            </div>
+          </div>
+        </label>
       </form>
 
       {/* Drafts list */}
@@ -372,12 +578,26 @@ export function PlanLens() {
               <div key={d.id} className="p-4 flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="font-medium truncate">{d.label}</div>
-                  <div className="text-xs text-fg-muted">
-                    {new Date(d.date).toLocaleDateString(undefined, {
-                      day: 'numeric',
-                      month: 'short',
-                      year: '2-digit',
-                    })}
+                  <div className="text-xs text-fg-muted flex items-center gap-2 mt-0.5">
+                    <span className="stat-num">
+                      {new Date(d.date).toLocaleDateString(undefined, {
+                        day: 'numeric',
+                        month: 'short',
+                        year: '2-digit',
+                      })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleDraftShared(d.id)}
+                      className={`text-[11px] px-1.5 py-0.5 rounded-full border transition-colors ${
+                        d.isShared
+                          ? 'border-accent/40 bg-accent/10 text-accent'
+                          : 'border-border text-fg-subtle hover:text-fg'
+                      }`}
+                      title={d.isShared ? 'Will be shared on commit — click to unshare' : 'Click to mark as shared on commit'}
+                    >
+                      {d.isShared ? 'Shared' : 'Private'}
+                    </button>
                   </div>
                 </div>
                 <div className="stat-num font-semibold tabular-nums text-negative">
