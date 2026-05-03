@@ -1,12 +1,13 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Table, Repeat, Coins, Settings as SettingsIcon, Moon, Sun, LogOut, Plus, Command } from 'lucide-react'
+import { LayoutDashboard, Table, Repeat, Coins, Settings as SettingsIcon, Moon, Sun, LogOut, Plus, Command, Scale } from 'lucide-react'
 import { useUi } from '@/store/ui'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { AddTransactionDialog } from './AddTransactionDialog'
+import { BalanceOutDialog } from './BalanceOutDialog'
 import { CommandPalette } from './CommandPalette'
-import { useEffect } from 'react'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -20,6 +21,9 @@ export function Layout() {
   const { theme, toggleTheme, setPaletteOpen } = useUi()
   const navigate = useNavigate()
   const [addOpen, setAddOpen] = useState(false)
+  const [balanceOutOpen, setBalanceOutOpen] = useState(false)
+  const [fabOpen, setFabOpen] = useState(false)
+  const fabRef = useRef<HTMLDivElement>(null)
 
   // Global hotkeys: Cmd/Ctrl+K palette, N quick-add
   useEffect(() => {
@@ -38,6 +42,18 @@ export function Layout() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [setPaletteOpen])
+
+  // Close FAB menu on outside click
+  useEffect(() => {
+    if (!fabOpen) return
+    const handler = (e: MouseEvent) => {
+      if (fabRef.current && !fabRef.current.contains(e.target as Node)) {
+        setFabOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [fabOpen])
 
   return (
     <div className="min-h-screen flex">
@@ -123,14 +139,58 @@ export function Layout() {
         </div>
       </nav>
 
-      {/* Mobile FAB — Liquid Glass, sits above bottom nav + home indicator */}
-      <button
-        onClick={() => setAddOpen(true)}
-        className="glass md:hidden fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40 w-14 h-14 rounded-full text-accent grid place-items-center active:scale-95"
-        aria-label="Add transaction"
-      >
-        <Plus className="w-6 h-6" />
-      </button>
+      {/* Mobile FAB — Expandable with "Add" and "Balance out" options */}
+      <div ref={fabRef} className="md:hidden fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40">
+        <AnimatePresence>
+          {fabOpen && (
+            <>
+              {/* Backdrop scrim */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="fixed inset-0 bg-black/30 backdrop-blur-[2px] -z-10"
+                onClick={() => setFabOpen(false)}
+              />
+              {/* Option: Balance out */}
+              <motion.button
+                initial={{ opacity: 0, y: 16, scale: 0.8 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 16, scale: 0.8 }}
+                transition={{ duration: 0.18, delay: 0.04 }}
+                onClick={() => { setFabOpen(false); setBalanceOutOpen(true) }}
+                className="absolute bottom-[calc(100%+4.5rem)] right-0 glass flex items-center gap-2.5 pl-4 pr-5 py-3 rounded-full text-sm font-medium whitespace-nowrap active:scale-95"
+              >
+                <Scale className="w-4 h-4 text-accent" />
+                Balance out
+              </motion.button>
+              {/* Option: Add */}
+              <motion.button
+                initial={{ opacity: 0, y: 16, scale: 0.8 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 16, scale: 0.8 }}
+                transition={{ duration: 0.18, delay: 0 }}
+                onClick={() => { setFabOpen(false); setAddOpen(true) }}
+                className="absolute bottom-[calc(100%+1rem)] right-0 glass flex items-center gap-2.5 pl-4 pr-5 py-3 rounded-full text-sm font-medium whitespace-nowrap active:scale-95"
+              >
+                <Plus className="w-4 h-4 text-accent" />
+                Add
+              </motion.button>
+            </>
+          )}
+        </AnimatePresence>
+        <button
+          onClick={() => setFabOpen((o) => !o)}
+          className={cn(
+            'glass w-14 h-14 rounded-full text-accent grid place-items-center active:scale-95 transition-transform duration-200',
+            fabOpen && 'rotate-45',
+          )}
+          aria-label="Add transaction"
+        >
+          <Plus className="w-6 h-6" />
+        </button>
+      </div>
 
       {/* Main — page content. */}
       <main className="flex-1 min-w-0 pt-[max(env(safe-area-inset-top),12px)] pb-[calc(5rem+env(safe-area-inset-bottom))] md:pt-0 md:pb-0">
@@ -138,6 +198,7 @@ export function Layout() {
       </main>
 
       <AddTransactionDialog open={addOpen} onOpenChange={setAddOpen} />
+      <BalanceOutDialog open={balanceOutOpen} onOpenChange={setBalanceOutOpen} />
       <CommandPalette onAdd={() => setAddOpen(true)} />
     </div>
   )
