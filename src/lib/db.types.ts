@@ -83,6 +83,99 @@ export type Database = {
         }
         Relationships: []
       }
+      meal_preferences: {
+        Row: {
+          user_id: string
+          meals_breakfast: boolean
+          meals_lunch: boolean
+          meals_dinner: boolean
+          meals_snacks: boolean
+          snacks_count: number
+          eating_notes: string | null
+          diet_type: string
+          foods_love: string | null
+          foods_avoid: string | null
+          cuisines: string[]
+          calc_mode: string
+          sex: string | null
+          age: number | null
+          height_cm: number | null
+          weight_kg: number | null
+          activity_level: string
+          goal: string
+          calories: number | null
+          protein_g: number | null
+          fat_g: number | null
+          carbs_g: number | null
+          stores: string[]
+          food_budget_amount: number | null
+          food_budget_period: string
+          shopping_notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id?: string
+          meals_breakfast?: boolean
+          meals_lunch?: boolean
+          meals_dinner?: boolean
+          meals_snacks?: boolean
+          snacks_count?: number
+          eating_notes?: string | null
+          diet_type?: string
+          foods_love?: string | null
+          foods_avoid?: string | null
+          cuisines?: string[]
+          calc_mode?: string
+          sex?: string | null
+          age?: number | null
+          height_cm?: number | null
+          weight_kg?: number | null
+          activity_level?: string
+          goal?: string
+          calories?: number | null
+          protein_g?: number | null
+          fat_g?: number | null
+          carbs_g?: number | null
+          stores?: string[]
+          food_budget_amount?: number | null
+          food_budget_period?: string
+          shopping_notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          meals_breakfast?: boolean
+          meals_lunch?: boolean
+          meals_dinner?: boolean
+          meals_snacks?: boolean
+          snacks_count?: number
+          eating_notes?: string | null
+          diet_type?: string
+          foods_love?: string | null
+          foods_avoid?: string | null
+          cuisines?: string[]
+          calc_mode?: string
+          sex?: string | null
+          age?: number | null
+          height_cm?: number | null
+          weight_kg?: number | null
+          activity_level?: string
+          goal?: string
+          calories?: number | null
+          protein_g?: number | null
+          fat_g?: number | null
+          carbs_g?: number | null
+          stores?: string[]
+          food_budget_amount?: number | null
+          food_budget_period?: string
+          shopping_notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       monthly_goals: {
         Row: {
           amount: number
@@ -529,3 +622,7 @@ export type AssetType = Database['public']['Enums']['asset_type']
 // BUDG-021 — Share links
 export type ShareLink = Database['public']['Tables']['share_links']['Row']
 export type ShareLinkInsert = Database['public']['Tables']['share_links']['Insert']
+
+// Meal planning preferences (AI export wizard)
+export type MealPreferences = Database['public']['Tables']['meal_preferences']['Row']
+export type MealPreferencesInsert = Database['public']['Tables']['meal_preferences']['Insert']

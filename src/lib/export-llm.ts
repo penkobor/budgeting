@@ -2,9 +2,11 @@ import { supabase } from './supabase'
 import { expandRuleInRange } from './recurring'
 import { effectiveOccurrenceAmount } from './projection'
 import { isoDate } from './utils'
+import { ACTIVITY_LABELS, GOAL_LABELS, type ActivityLevel, type WeightGoal } from './nutrition'
 import type {
   Asset,
   Category,
+  MealPreferencesInsert,
   MonthlyGoal,
   MonthlyOpening,
   RecurringOverride,
@@ -382,11 +384,106 @@ export async function exportForLlm(): Promise<void> {
   const data = await fetchAllData()
   const markdown = buildLlmMarkdown(data)
 
-  const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
+  downloadMarkdown(markdown, `budget-export-${isoDate(new Date())}.md`)
+}
+
+export async function exportForLlmWithMealPlan(prefs: MealPreferencesInsert): Promise<void> {
+  const data = await fetchAllData()
+  const currency = data.settings.currency ?? 'CZK'
+  const financialMd = buildLlmMarkdown(data)
+  const mealSection = buildMealPlanSection(prefs, currency)
+  const markdown = financialMd.replace(
+    '## Context for AI Advisor',
+    mealSection + '\n\n## Context for AI Advisor',
+  )
+
+  downloadMarkdown(markdown, `budget-meal-export-${isoDate(new Date())}.md`)
+}
+
+function buildMealPlanSection(prefs: MealPreferencesInsert, currency: string): string {
+  const lines: string[] = []
+  const push = (...ls: string[]) => lines.push(...ls)
+
+  push(`## 🍽️ Meal Planning Instructions`)
+  push(``)
+
+  // Eating pattern
+  push(`### My eating pattern`)
+  const meals: string[] = []
+  if (prefs.meals_breakfast) meals.push('Breakfast')
+  if (prefs.meals_lunch) meals.push('Lunch')
+  if (prefs.meals_dinner) meals.push('Dinner')
+  if (prefs.meals_snacks) meals.push(`${prefs.snacks_count ?? 2} snack(s)`)
+  push(`- **Meals:** ${meals.join(', ') || 'Not specified'}`)
+  if (prefs.eating_notes) push(`- **Notes:** ${prefs.eating_notes}`)
+  push(``)
+
+  // Food preferences
+  push(`### Food preferences`)
+  push(`- **Diet:** ${prefs.diet_type ?? 'omnivore'}`)
+  if (prefs.foods_love) push(`- **Love:** ${prefs.foods_love}`)
+  if (prefs.foods_avoid) push(`- **Avoid / allergies:** ${prefs.foods_avoid}`)
+  if (prefs.cuisines && prefs.cuisines.length > 0) {
+    push(`- **Preferred cuisines:** ${prefs.cuisines.join(', ')}`)
+  }
+  push(``)
+
+  // Body metrics (if auto mode)
+  if (prefs.calc_mode === 'auto') {
+    push(`### Body metrics (for reference)`)
+    if (prefs.sex) push(`- **Sex:** ${prefs.sex}`)
+    if (prefs.age) push(`- **Age:** ${prefs.age}`)
+    if (prefs.height_cm) push(`- **Height:** ${prefs.height_cm} cm`)
+    if (prefs.weight_kg) push(`- **Weight:** ${prefs.weight_kg} kg`)
+    push(`- **Activity:** ${ACTIVITY_LABELS[(prefs.activity_level as ActivityLevel) ?? 'moderate']}`)
+    push(`- **Goal:** ${GOAL_LABELS[(prefs.goal as WeightGoal) ?? 'maintain']}`)
+    push(``)
+  }
+
+  // Nutrition targets
+  push(`### Daily nutrition targets`)
+  if (prefs.calories) push(`- **Calories:** ${prefs.calories} kcal`)
+  if (prefs.protein_g) push(`- **Protein:** ${prefs.protein_g}g`)
+  if (prefs.fat_g) push(`- **Fat:** ${prefs.fat_g}g`)
+  if (prefs.carbs_g) push(`- **Carbs:** ${prefs.carbs_g}g`)
+  if (prefs.calc_mode === 'auto') {
+    push(`- _Calculated using Mifflin-St Jeor equation_`)
+  }
+  push(``)
+
+  // Shopping context
+  push(`### Shopping context`)
+  if (prefs.stores && prefs.stores.length > 0) {
+    push(`- **Preferred stores:** ${prefs.stores.join(', ')}`)
+  }
+  if (prefs.food_budget_amount) {
+    push(`- **Food budget:** ${prefs.food_budget_amount} ${currency} / ${prefs.food_budget_period ?? 'week'}`)
+  }
+  if (prefs.shopping_notes) push(`- **Notes:** ${prefs.shopping_notes}`)
+  push(``)
+
+  // Custom instructions for the LLM
+  push(`### Instructions for AI`)
+  push(``)
+  push(`Based on my budget data above AND these meal preferences, please:`)
+  push(``)
+  push(`1. **Search current prices and deals** at ${(prefs.stores ?? ['Albert', 'Billa', 'Lidl']).join(', ')} (use the internet to find current flyers/promotions).`)
+  push(`2. **Create a weekly meal plan** that fits my daily macros (${prefs.calories ?? '~2000'} kcal, ${prefs.protein_g ?? '?'}g protein, ${prefs.fat_g ?? '?'}g fat, ${prefs.carbs_g ?? '?'}g carbs) and my eating pattern.`)
+  push(`3. **Generate a shopping list** organized by store, within my food budget of ${prefs.food_budget_amount ?? '?'} ${currency}/${prefs.food_budget_period ?? 'week'}.`)
+  push(`4. **Prioritize items on sale/discount** at my preferred stores.`)
+  push(`5. **Suggest budget-optimized swaps** where possible (cheaper alternatives with similar macros).`)
+  push(`6. **Consider my overall financial situation** (see budget data above) — if I'm under budget this month, you can suggest slightly nicer options; if I'm tight, optimize harder.`)
+  push(``)
+
+  return lines.join('\n')
+}
+
+function downloadMarkdown(content: string, filename: string): void {
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `budget-export-${isoDate(new Date())}.md`
+  a.download = filename
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
