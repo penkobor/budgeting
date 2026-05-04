@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
-import { Tags, ChevronRight, Share2, Copy, Check } from 'lucide-react'
+import { Tags, ChevronRight, Share2, Copy, Check, BrainCircuit } from 'lucide-react'
 import { useSettings, useUpdateSettings } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
 import { useUi } from '@/store/ui'
@@ -9,6 +9,7 @@ import { getHapticsPreference, isHapticsSupported, setHapticsEnabled, haptics } 
 import { APP_VERSION, BUILD_SHA, BUILD_TIME, formatBuildTime } from '@/lib/version'
 import { useShareLink, useUpsertShareLink, useDisableShareLink, buildShareUrl } from '@/hooks/share'
 import { pushToast } from '@/components/ui/Toast'
+import { exportForLlm } from '@/lib/export-llm'
 
 export function SettingsPage() {
   const { data: settings } = useSettings()
@@ -76,6 +77,8 @@ export function SettingsPage() {
 
       <ShareLinkSection />
 
+      <LlmExportSection />
+
       <section className="card p-4 md:p-5 space-y-1.5">
         <h2 className="font-semibold">Build</h2>
         <p className="text-xs text-fg-subtle stat-num leading-relaxed">
@@ -88,6 +91,45 @@ export function SettingsPage() {
         </p>
       </section>
     </div>
+  )
+}
+
+function LlmExportSection() {
+  const [exporting, setExporting] = useState(false)
+
+  const onExport = async () => {
+    setExporting(true)
+    try {
+      await exportForLlm()
+      pushToast('Export downloaded — paste it into ChatGPT for advice')
+    } catch (err) {
+      pushToast((err as Error).message, 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  return (
+    <section className="card p-4 md:p-5 space-y-3 md:space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-accent/10 text-accent grid place-items-center shrink-0">
+          <BrainCircuit className="w-4 h-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-semibold">AI Export</h2>
+          <div className="text-xs text-fg-subtle">
+            Download a Markdown snapshot of all your data for ChatGPT / Claude
+          </div>
+        </div>
+      </div>
+      <p className="text-xs text-fg-subtle">
+        Exports your full financial picture — balance, transactions, recurring rules, goals, assets —
+        in a format optimised for LLM analysis. Paste it into any AI chat to get personalised advice.
+      </p>
+      <button onClick={onExport} disabled={exporting} className="btn-primary w-full">
+        {exporting ? 'Exporting…' : 'Export for AI'}
+      </button>
+    </section>
   )
 }
 
