@@ -17,6 +17,8 @@ import type {
   Settings,
   Asset,
   AssetInsert,
+  DraftTransaction,
+  DraftTransactionInsert,
 } from '@/lib/db.types'
 
 // ---------- Categories ----------
@@ -446,5 +448,62 @@ export function useDeleteAsset() {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['assets'] }),
+  })
+}
+
+// ---------- Draft transactions ----------
+export function useDraftTransactions() {
+  return useQuery({
+    queryKey: ['draft_transactions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('draft_transactions')
+        .select('*')
+        .order('occurred_on')
+        .order('created_at')
+      if (error) throw error
+      return (data ?? []) as DraftTransaction[]
+    },
+  })
+}
+
+export function useInsertDraft() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (d: DraftTransactionInsert) => {
+      const { data, error } = await supabase
+        .from('draft_transactions')
+        .insert(d)
+        .select()
+        .single()
+      if (error) throw error
+      return data as DraftTransaction
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['draft_transactions'] }),
+  })
+}
+
+export function useDeleteDraft() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('draft_transactions').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['draft_transactions'] }),
+  })
+}
+
+export function useDeleteDraftsForDate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (date: string) => {
+      const { error } = await supabase
+        .from('draft_transactions')
+        .delete()
+        .eq('occurred_on', date)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['draft_transactions'] }),
   })
 }

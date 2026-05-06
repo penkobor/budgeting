@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Table, Repeat, Coins, Settings as SettingsIcon, Moon, Sun, LogOut, Plus, Command, Scale } from 'lucide-react'
+import { LayoutDashboard, Table, Repeat, Coins, Settings as SettingsIcon, Moon, Sun, LogOut, Plus, Command, Scale, FileEdit } from 'lucide-react'
 import { useUi } from '@/store/ui'
 import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
@@ -21,6 +21,7 @@ export function Layout() {
   const { theme, toggleTheme, setPaletteOpen } = useUi()
   const navigate = useNavigate()
   const [addOpen, setAddOpen] = useState(false)
+  const [draftAddOpen, setDraftAddOpen] = useState(false)
   const [balanceOutOpen, setBalanceOutOpen] = useState(false)
   const [fabOpen, setFabOpen] = useState(false)
   const fabRef = useRef<HTMLDivElement>(null)
@@ -158,12 +159,24 @@ export function Layout() {
                 initial={{ opacity: 0, y: 16, scale: 0.8 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 16, scale: 0.8 }}
-                transition={{ duration: 0.18, delay: 0.04 }}
+                transition={{ duration: 0.18, delay: 0.08 }}
                 onClick={() => { setFabOpen(false); setBalanceOutOpen(true) }}
-                className="absolute bottom-[calc(100%+4.5rem)] right-0 glass flex items-center gap-2.5 pl-4 pr-5 py-3 rounded-full text-sm font-medium whitespace-nowrap active:scale-95"
+                className="absolute bottom-[calc(100%+8rem)] right-0 glass flex items-center gap-2.5 pl-4 pr-5 py-3 rounded-full text-sm font-medium whitespace-nowrap active:scale-95"
               >
                 <Scale className="w-4 h-4 text-accent" />
                 Balance out
+              </motion.button>
+              {/* Option: Add draft */}
+              <motion.button
+                initial={{ opacity: 0, y: 16, scale: 0.8 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 16, scale: 0.8 }}
+                transition={{ duration: 0.18, delay: 0.04 }}
+                onClick={() => { setFabOpen(false); setDraftAddOpen(true) }}
+                className="absolute bottom-[calc(100%+4.5rem)] right-0 glass flex items-center gap-2.5 pl-4 pr-5 py-3 rounded-full text-sm font-medium whitespace-nowrap active:scale-95"
+              >
+                <FileEdit className="w-4 h-4 text-accent" />
+                Add draft
               </motion.button>
               {/* Option: Add */}
               <motion.button
@@ -198,6 +211,7 @@ export function Layout() {
       </main>
 
       <AddTransactionDialog open={addOpen} onOpenChange={setAddOpen} />
+      <AddTransactionDialog open={draftAddOpen} onOpenChange={setDraftAddOpen} isDraft />
       <BalanceOutDialog open={balanceOutOpen} onOpenChange={setBalanceOutOpen} />
       <CommandPalette onAdd={() => setAddOpen(true)} />
     </div>

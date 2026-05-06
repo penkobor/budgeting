@@ -11,6 +11,7 @@ import {
   useApplyRebalance,
   useAssets,
   useCategories,
+  useInsertDraft,
   useMonthlyGoal,
   useMonthlyOpening,
   useRecurringOverridesInRange,
@@ -39,6 +40,7 @@ interface Props {
   initialRecurringRuleId?: string | null
   initialIsShared?: boolean
   editId?: string
+  isDraft?: boolean
 }
 
 type Step = 'form' | 'rebalance'
@@ -53,11 +55,13 @@ export function AddTransactionDialog({
   initialRecurringRuleId,
   initialIsShared,
   editId,
+  isDraft,
 }: Props) {
   const { data: categories } = useCategories()
   const { data: settings } = useSettings()
   const upsertTx = useUpsertTransaction()
   const applyRebalanceMutation = useApplyRebalance()
+  const insertDraft = useInsertDraft()
 
   const [date, setDate] = useState(initialDate ?? isoDate(new Date()))
   const [amount, setAmount] = useState(String(initialAmount ?? ''))
@@ -170,6 +174,21 @@ export function AddTransactionDialog({
     }
 
     const isEdit = !!editId
+
+    // Draft mode: save to Supabase draft_transactions, skip rebalance
+    if (isDraft) {
+      await insertDraft.mutateAsync({
+        occurred_on: date,
+        amount: signed,
+        description: description || null,
+        category_id: categoryId || null,
+        kind,
+      })
+      pushToast('Draft saved')
+      onOpenChange(false)
+      return
+    }
+
     if (
       kind === 'expense' &&
       !isEdit &&
@@ -269,10 +288,12 @@ export function AddTransactionDialog({
   const isRebalance = step === 'rebalance'
   const title = isRebalance
     ? 'Rebalance to stay on track'
-    : editId
-      ? 'Edit transaction'
-      : 'Add transaction'
-  const applying = upsertTx.isPending || applyRebalanceMutation.isPending
+    : isDraft
+      ? 'Add draft'
+      : editId
+        ? 'Edit transaction'
+        : 'Add transaction'
+  const applying = upsertTx.isPending || applyRebalanceMutation.isPending || insertDraft.isPending
 
   return (
     <Modal
@@ -297,10 +318,10 @@ export function AddTransactionDialog({
             <button
               type="submit"
               form="add-tx-form"
-              disabled={upsertTx.isPending}
+              disabled={applying}
               className="btn-primary"
             >
-              {upsertTx.isPending ? 'Saving…' : editId ? 'Save' : 'Add'}
+              {applying ? 'Saving…' : isDraft ? 'Add draft' : editId ? 'Save' : 'Add'}
             </button>
           </>
         )
@@ -401,20 +422,22 @@ export function AddTransactionDialog({
               </select>
             </div>
 
-            <label className="flex items-center gap-2.5 rounded-xl border border-border p-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isShared}
-                onChange={(e) => setIsShared(e.target.checked)}
-                className="w-4 h-4"
-              />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium">Show on my public share page</div>
-                <div className="text-[11px] text-fg-subtle">
-                  Anyone with your share link can see this entry. Toggle in Settings.
+            {!isDraft && (
+              <label className="flex items-center gap-2.5 rounded-xl border border-border p-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isShared}
+                  onChange={(e) => setIsShared(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">Show on my public share page</div>
+                  <div className="text-[11px] text-fg-subtle">
+                    Anyone with your share link can see this entry. Toggle in Settings.
+                  </div>
                 </div>
-              </div>
-            </label>
+              </label>
+            )}
           </motion.form>
         )}
       </AnimatePresence>

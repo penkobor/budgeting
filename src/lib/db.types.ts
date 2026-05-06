@@ -83,6 +83,47 @@ export type Database = {
         }
         Relationships: []
       }
+      draft_transactions: {
+        Row: {
+          id: string
+          user_id: string
+          occurred_on: string
+          amount: number
+          description: string | null
+          category_id: string | null
+          kind: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          occurred_on: string
+          amount: number
+          description?: string | null
+          category_id?: string | null
+          kind?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          occurred_on?: string
+          amount?: number
+          description?: string | null
+          category_id?: string | null
+          kind?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "draft_transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meal_preferences: {
         Row: {
           user_id: string
@@ -626,3 +667,7 @@ export type ShareLinkInsert = Database['public']['Tables']['share_links']['Inser
 // Meal planning preferences (AI export wizard)
 export type MealPreferences = Database['public']['Tables']['meal_preferences']['Row']
 export type MealPreferencesInsert = Database['public']['Tables']['meal_preferences']['Insert']
+
+// Draft transactions (scratch-pad before committing to ledger)
+export type DraftTransaction = Database['public']['Tables']['draft_transactions']['Row']
+export type DraftTransactionInsert = Database['public']['Tables']['draft_transactions']['Insert']

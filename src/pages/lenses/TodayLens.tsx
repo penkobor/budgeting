@@ -8,11 +8,18 @@ import {
   Pencil,
   Trash2,
   Wallet,
+  FileEdit,
+  CheckCircle2,
+  X,
 } from 'lucide-react'
 import {
   useAssets,
   useCategories,
+  useDeleteDraft,
+  useDeleteDraftsForDate,
   useDeleteTransaction,
+  useDraftTransactions,
+  useInsertTransactions,
   useMonthlyOpening,
   useRecurringOverridesInRange,
   useRecurringRules,
@@ -23,7 +30,8 @@ import { formatMoney, isoDate, monthKey, daysInMonth } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
 import { effectiveOccurrenceAmount } from '@/lib/projection'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
-import type { Transaction } from '@/lib/db.types'
+import { pushToast } from '@/components/ui/Toast'
+import type { Transaction, TransactionInsert } from '@/lib/db.types'
 
 function addDays(d: Date, n: number) {
   const out = new Date(d.getFullYear(), d.getMonth(), d.getDate())
@@ -404,6 +412,9 @@ export function TodayLens() {
         )}
       </section>
 
+      {/* Draft transactions section */}
+      <DraftSection viewedIso={viewedIso} currency={currency} catMap={catMap} />
+
       {/* Edit dialogs */}
       <AddTransactionDialog
         open={!!editingTx}
@@ -424,6 +435,139 @@ export function TodayLens() {
         initialRecurringRuleId={editingPending?.rule_id ?? null}
       />
     </div>
+  )
+}
+
+function DraftSection({
+  viewedIso,
+  currency,
+  catMap,
+}: {
+  viewedIso: string
+  currency: string
+  catMap: Record<string, { name: string }>
+}) {
+  const { data: allDrafts = [] } = useDraftTransactions()
+  const deleteDraft = useDeleteDraft()
+  const deleteDraftsForDate = useDeleteDraftsForDate()
+  const insertTxs = useInsertTransactions()
+
+  const dayDrafts = useMemo(
+    () => allDrafts.filter((d) => d.occurred_on === viewedIso),
+    [allDrafts, viewedIso],
+  )
+
+  const draftTotal = useMemo(
+    () => dayDrafts.reduce((sum, d) => sum + Number(d.amount), 0),
+    [dayDrafts],
+  )
+
+  const commitDrafts = async () => {
+    const rows: TransactionInsert[] = dayDrafts.map((d) => ({
+      occurred_on: d.occurred_on,
+      amount: Number(d.amount),
+      description: d.description,
+      category_id: d.category_id,
+      is_shared: false,
+      recurring_rule_id: null,
+      planned: true,
+      confirmed_at: null,
+    }))
+    await insertTxs.mutateAsync(rows)
+    await deleteDraftsForDate.mutateAsync(viewedIso)
+    pushToast(`${dayDrafts.length} draft${dayDrafts.length === 1 ? '' : 's'} added to ledger`)
+  }
+
+  if (dayDrafts.length === 0) return null
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="card p-4 md:p-5 border-dashed border-accent/30"
+    >
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <FileEdit className="w-4 h-4 text-accent" />
+          <div className="label">Drafts</div>
+        </div>
+        <div className="stat-num text-sm font-medium text-fg-muted">
+          {formatMoney(draftTotal, currency)}
+        </div>
+      </div>
+
+      <div className="divide-y divide-border">
+        {dayDrafts.map((d) => (
+          <div
+            key={d.id}
+            className="group flex items-center justify-between gap-3 py-2"
+          >
+            <div className="min-w-0 flex items-center gap-3">
+              <div
+                className={`w-8 h-8 rounded-lg grid place-items-center shrink-0 ${
+                  d.amount >= 0
+                    ? 'bg-positive/10 text-positive'
+                    : 'bg-negative/10 text-negative'
+                }`}
+              >
+                {d.amount >= 0 ? (
+                  <ArrowUpRight className="w-4 h-4" />
+                ) : (
+                  <ArrowDownRight className="w-4 h-4" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-medium truncate flex items-center gap-2">
+                  <span className="truncate">
+                    {d.description?.trim() ||
+                      (d.category_id ? catMap[d.category_id]?.name : null) ||
+                      'Untitled'}
+                  </span>
+                  <span className="text-[10px] text-accent uppercase tracking-wider shrink-0">
+                    draft
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <div
+                className={`stat-num text-sm ${
+                  d.amount >= 0 ? 'text-positive' : 'text-negative'
+                }`}
+              >
+                {formatMoney(d.amount, currency)}
+              </div>
+              <button
+                onClick={() => deleteDraft.mutate(d.id)}
+                className="btn-ghost !p-1.5 text-negative max-md:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                title="Remove draft"
+                aria-label="Remove draft"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+        <button
+          onClick={() => deleteDraftsForDate.mutate(viewedIso)}
+          className="btn-ghost text-xs flex-1"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Clear all
+        </button>
+        <button
+          onClick={commitDrafts}
+          disabled={insertTxs.isPending || deleteDraftsForDate.isPending}
+          className="btn-primary text-xs flex-1"
+        >
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          {insertTxs.isPending ? 'Adding…' : 'Add to ledger'}
+        </button>
+      </div>
+    </motion.section>
   )
 }
 
