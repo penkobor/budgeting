@@ -169,8 +169,7 @@ export function ForecastLens() {
   return (
     <div className="space-y-4 md:space-y-6">
       <header>
-        <div className="label">Forecast</div>
-        <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">Where you're heading</h1>
+        <h1 className="page-title">Where you're heading</h1>
       </header>
 
       {/* Horizon chips */}

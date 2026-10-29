@@ -51,7 +51,7 @@ export function Modal({ open, onOpenChange, title, description, children, footer
               'max-md:animate-sheet-up',
               // Desktop centred dialog
               'md:w-[92vw] md:max-h-[85vh]',
-              'md:glass md:rounded-2xl md:p-6 md:animate-slide-up',
+              'md:bg-bg-card md:ring-1 md:ring-border md:shadow-[0_24px_64px_-12px_rgb(0_0_0/0.35)] md:rounded-[20px] md:p-6 md:animate-slide-up',
               sizeClass,
             ].join(' ')}
           >

@@ -329,3 +329,58 @@ export function distributeEvenly(
     leftover: Math.max(0, (cents - coveredCents) / 100),
   }
 }
+
+export interface DayTotals {
+  date: string // ISO yyyy-mm-dd
+  income: number // positive
+  expense: number // positive
+  /** Running balance at the end of this day (opening + everything up to and including it). */
+  balance: number
+}
+
+/**
+ * Day-by-day totals for one month, the same way Ledger builds its rows:
+ * every transaction plus every recurring occurrence that has no matching
+ * transaction yet (overrides applied, skipped ones dropped).
+ */
+export function dailyTotals(
+  monthIso: string,
+  openingBalance: number,
+  transactions: Transaction[],
+  rules: RecurringRule[],
+  overrides: RecurringOverride[],
+): DayTotals[] {
+  const monthStart = new Date(monthIso + 'T00:00:00')
+  const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0)
+  const prefix = monthIso.slice(0, 8)
+
+  const deltas: number[][] = Array.from({ length: monthEnd.getDate() + 1 }, () => [])
+  const realised = new Set<string>()
+  for (const t of transactions) {
+    if (!t.occurred_on.startsWith(prefix)) continue
+    deltas[Number(t.occurred_on.slice(8, 10))].push(Number(t.amount))
+    if (t.recurring_rule_id) realised.add(`${t.recurring_rule_id}|${t.occurred_on}`)
+  }
+  for (const rule of rules) {
+    for (const d of expandRuleInRange(rule, monthStart, monthEnd)) {
+      if (realised.has(`${rule.id}|${d}`)) continue
+      const amt = effectiveOccurrenceAmount(rule, d, overrides)
+      if (amt == null) continue
+      deltas[Number(d.slice(8, 10))].push(amt)
+    }
+  }
+
+  const out: DayTotals[] = []
+  let balance = openingBalance
+  for (let day = 1; day <= monthEnd.getDate(); day++) {
+    let income = 0
+    let expense = 0
+    for (const a of deltas[day]) {
+      if (a >= 0) income += a
+      else expense -= a
+    }
+    balance += income - expense
+    out.push({ date: `${prefix}${String(day).padStart(2, '0')}`, income, expense, balance })
+  }
+  return out
+}

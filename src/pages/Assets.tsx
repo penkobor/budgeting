@@ -32,11 +32,11 @@ export function AssetsPage() {
   const grandTotal = assets.reduce((s, a) => s + Number(a.value), 0)
 
   return (
-    <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-3xl mx-auto">
+    <div className="px-4 py-5 md:px-10 md:py-10 space-y-5 md:space-y-8 max-w-3xl mx-auto">
       <header className="flex items-center justify-between">
         <div>
           <div className="label">Wealth</div>
-          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">Assets</h1>
+          <h1 className="page-title mt-0.5">Assets</h1>
         </div>
         <button onClick={() => setAdding(true)} className="btn-primary">
           <Plus className="w-4 h-4" /> Add

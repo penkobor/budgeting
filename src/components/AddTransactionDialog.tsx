@@ -19,7 +19,9 @@ import {
   useSettings,
   useTransactionsInRange,
   useUpsertTransaction,
+  useDeleteTransaction,
 } from '@/hooks/queries'
+import { Segmented } from './ui/Segmented'
 import { isoDate } from '@/lib/utils'
 import {
   computeProjectedEndBalance,
@@ -60,6 +62,7 @@ export function AddTransactionDialog({
   const { data: categories } = useCategories()
   const { data: settings } = useSettings()
   const upsertTx = useUpsertTransaction()
+  const deleteTx = useDeleteTransaction()
   const applyRebalanceMutation = useApplyRebalance()
   const insertDraft = useInsertDraft()
 
@@ -312,6 +315,21 @@ export function AddTransactionDialog({
           />
         ) : (
           <>
+            {editId && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!window.confirm('Delete this entry?')) return
+                  await deleteTx.mutateAsync(editId)
+                  pushToast('Entry deleted')
+                  onOpenChange(false)
+                }}
+                disabled={deleteTx.isPending}
+                className="btn-ghost text-negative mr-auto"
+              >
+                Delete
+              </button>
+            )}
             <button type="button" onClick={() => onOpenChange(false)} className="btn-ghost">
               Cancel
             </button>
@@ -357,28 +375,20 @@ export function AddTransactionDialog({
               if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit(e as React.FormEvent)
             }}
           >
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setKind('expense')}
-                className={`btn flex-1 ${kind === 'expense' ? 'bg-negative/10 text-negative border border-negative/30' : 'btn-outline'}`}
-              >
-                Expense
-              </button>
-              <button
-                type="button"
-                onClick={() => setKind('income')}
-                className={`btn flex-1 ${kind === 'income' ? 'bg-positive/10 text-positive border border-positive/30' : 'btn-outline'}`}
-              >
-                Income
-              </button>
-            </div>
+            <Segmented
+              value={kind}
+              onChange={setKind}
+              options={[
+                { value: 'expense', label: 'Expense' },
+                { value: 'income', label: 'Income' },
+              ]}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="min-w-0">
                 <div className="label mb-1.5">Amount</div>
                 <input
-                  className="input stat-num text-lg"
+                  className="input stat-num text-xl font-semibold"
                   inputMode="decimal"
                   placeholder="0"
                   value={amount}

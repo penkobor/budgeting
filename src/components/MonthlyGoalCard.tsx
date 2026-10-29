@@ -211,7 +211,7 @@ function GoalEditSheet({ open, onOpenChange, yearMonth, currentAmount, currency,
             disabled={pending}
             onChange={(e) => setValue(e.target.value.replace(/[^\d.,\s]/g, ''))}
             placeholder="0"
-            className="mt-1 w-full text-2xl md:text-3xl font-semibold stat-num bg-bg-elev rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-accent/60"
+            className="mt-1 w-full text-2xl md:text-3xl font-semibold stat-num bg-bg-elev rounded-xl px-4 py-3 outline-none ring-1 ring-transparent focus:ring-border-strong transition-shadow"
           />
         </label>
         <label className="block">

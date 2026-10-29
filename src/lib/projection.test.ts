@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   computeProjectedEndBalance,
+  dailyTotals,
   distributeEvenly,
   type PlannedOccurrence,
 } from './projection'
@@ -225,3 +226,39 @@ describe('distributeEvenly', () => {
   })
 })
 
+
+describe('dailyTotals', () => {
+  it('builds running balances from transactions and unrealised recurring occurrences', () => {
+    const rent = rule({ id: 'rent', name: 'Rent', amount: 1000, kind: 'expense', frequency: 'monthly', day_of_month: 2 })
+    const salary = rule({ id: 'salary', name: 'Salary', amount: 5000, kind: 'income', frequency: 'monthly', day_of_month: 3 })
+    const txs = [
+      { id: 'a', occurred_on: '2026-04-01', amount: -200, recurring_rule_id: null },
+      // Realised salary — the rule occurrence on the 3rd must not count twice.
+      { id: 'b', occurred_on: '2026-04-03', amount: 4800, recurring_rule_id: 'salary' },
+      { id: 'c', occurred_on: '2026-05-01', amount: -999, recurring_rule_id: null },
+    ] as never
+
+    const days = dailyTotals('2026-04-01', 10_000, txs, [rent, salary], [])
+
+    expect(days).toHaveLength(30)
+    expect(days[0]).toEqual({ date: '2026-04-01', income: 0, expense: 200, balance: 9800 })
+    expect(days[1]).toEqual({ date: '2026-04-02', income: 0, expense: 1000, balance: 8800 })
+    expect(days[2]).toEqual({ date: '2026-04-03', income: 4800, expense: 0, balance: 13_600 })
+    expect(days[29].balance).toBe(13_600)
+  })
+
+  it('applies overrides and drops skipped occurrences', () => {
+    const gym = rule({ id: 'gym', name: 'Gym', amount: 300, kind: 'expense', frequency: 'monthly', day_of_month: 5 })
+    const coffee = rule({ id: 'coffee', name: 'Coffee', amount: 50, kind: 'expense', frequency: 'monthly', day_of_month: 6 })
+    const overrides = [
+      { recurring_rule_id: 'gym', occurrence_date: '2026-04-05', amount_override: 100, skipped: false },
+      { recurring_rule_id: 'coffee', occurrence_date: '2026-04-06', amount_override: null, skipped: true },
+    ] as never
+
+    const days = dailyTotals('2026-04-01', 0, [], [gym, coffee], overrides)
+
+    expect(days[4].expense).toBe(100)
+    expect(days[5].expense).toBe(0)
+    expect(days[29].balance).toBe(-100)
+  })
+})

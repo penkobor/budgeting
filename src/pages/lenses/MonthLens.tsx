@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine,
 } from 'recharts'
-import { ArrowDownRight, ArrowUpRight, Target } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Target } from 'lucide-react'
 import {
   useAssets, useCategories, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules, useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
@@ -130,16 +130,15 @@ export function MonthLens() {
   const monthLabel = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <header className="flex flex-wrap items-center gap-3 justify-between">
-        <div>
-          <div className="label">Overview</div>
-          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">{monthLabel}</h1>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} className="btn-outline">←</button>
-          <button onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))} className="btn-outline">Today</button>
-          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="btn-outline">→</button>
+    <div className="space-y-5 md:space-y-6">
+      <header className="flex items-center gap-3 justify-between">
+        <h1 className="page-title truncate">{monthLabel}</h1>
+        <div className="flex items-center gap-1 shrink-0">
+          {(cursor.getFullYear() !== today.getFullYear() || cursor.getMonth() !== today.getMonth()) && (
+            <button onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))} className="btn-tinted !rounded-full !py-1.5 text-[13px]">Today</button>
+          )}
+          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} className="icon-btn" aria-label="Previous month"><ChevronLeft className="w-5 h-5" /></button>
+          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="icon-btn" aria-label="Next month"><ChevronRight className="w-5 h-5" /></button>
         </div>
       </header>
 

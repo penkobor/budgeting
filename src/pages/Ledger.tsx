@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Beer, ChevronRight, ListChecks, Pencil, Square, SquareCheckBig, Trash2, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, ListChecks, Plus, Repeat, Share2, X } from 'lucide-react'
 import {
-  useCategories, useDeleteTransaction, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules,
+  useCategories, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules,
   useSettings, useTransactionsInRange,
 } from '@/hooks/queries'
 import { daysInMonth, formatMoney, isoDate, monthKey } from '@/lib/utils'
@@ -25,7 +25,6 @@ export function Ledger() {
   const { data: rules = [] } = useRecurringRules()
   const { data: overrides = [] } = useRecurringOverridesInRange(fromIso, toIso)
   const { data: personalCategories = [] } = useCategories()
-  const deleteTx = useDeleteTransaction()
 
   const currency = settings?.currency ?? 'CZK'
   const catMap = useMemo(
@@ -263,267 +262,194 @@ export function Ledger() {
   }, [sameMonthAsToday, monthIso])
 
 
+  const todayIso = isoDate(today)
+  const shiftMonth = (n: number) => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + n, 1))
+
   return (
-    <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto pb-32">
-      {/* Title: normal flow, scrolls away with content */}
-      <div>
-        <div className="label">Ledger</div>
-        <h1 className="text-xl md:text-3xl font-semibold mt-0.5">{monthLabel}</h1>
-      </div>
-
-      {/* Floating glass pill toolbar — sticky relative to the page wrapper so
-          it stays pinned for the whole scroll range, not just while the title
-          is still visible. */}
-      <div className="sticky top-[calc(env(safe-area-inset-top)+0.125rem)] md:top-4 z-30 flex justify-end pointer-events-none">
-        <div className="flex gap-2 items-center pointer-events-auto">
-          {selectMode ? (
-            <>
-              <span className="glass !rounded-full px-3 h-9 inline-flex items-center text-xs text-fg-muted stat-num">
-                {selectedDays.size} selected
-              </span>
+    <div className="max-w-4xl mx-auto pb-32 md:pb-16 max-md:-mt-[calc(env(safe-area-inset-top)+12px)]">
+      {/* Sticky header: the month and its controls stay reachable while scrolling. */}
+      <header className="sticky top-0 z-20 px-4 md:px-10 pt-[calc(env(safe-area-inset-top)+20px)] md:pt-10 pb-3 bg-bg/85 backdrop-blur-xl">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="page-title truncate">{monthLabel}</h1>
+          <div className="flex items-center gap-1 shrink-0">
+            {!sameMonthAsToday && (
               <button
-                onClick={() => { setSelectMode(false); setSelectedDays(new Set()) }}
-                className="glass btn !rounded-full !h-9 !w-9 !p-0 md:!w-auto md:!px-3.5"
-                title="Exit selection"
+                onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))}
+                className="btn-tinted !rounded-full !py-1.5 text-[13px]"
               >
-                <X className="w-4 h-4" />
-                <span className="hidden md:inline">Done</span>
+                Today
               </button>
-            </>
-          ) : (
-            <button
-              onClick={() => setSelectMode(true)}
-              className="glass btn !rounded-full !h-9 !w-9 !p-0 md:!w-auto md:!px-3.5"
-              title="Select days to summarise"
-            >
-              <ListChecks className="w-4 h-4" />
-              <span className="hidden md:inline">Select</span>
+            )}
+            <button onClick={() => shiftMonth(-1)} className="icon-btn" aria-label="Previous month">
+              <ChevronLeft className="w-5 h-5" />
             </button>
-          )}
-          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} className="glass btn !rounded-full !h-9 !w-9 !p-0">←</button>
-          <button onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))} className="glass btn !rounded-full !h-9">Today</button>
-          <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} className="glass btn !rounded-full !h-9 !w-9 !p-0">→</button>
+            <button onClick={() => shiftMonth(1)} className="icon-btn" aria-label="Next month">
+              <ChevronRight className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => {
+                if (selectMode) setSelectedDays(new Set())
+                setSelectMode(!selectMode)
+              }}
+              className={`icon-btn ${selectMode ? '!bg-fg !text-bg' : ''}`}
+              aria-pressed={selectMode}
+              title={selectMode ? 'Done selecting' : 'Select days to summarise'}
+            >
+              {selectMode ? <X className="w-[18px] h-[18px]" /> : <ListChecks className="w-[18px] h-[18px]" />}
+            </button>
+          </div>
         </div>
-      </div>
+        {selectMode && (
+          <div className="text-[13px] text-fg-muted mt-1">
+            {selectedDays.size === 0 ? 'Tap days to add them to a summary.' : `${selectedDays.size} selected`}
+          </div>
+        )}
+      </header>
 
-      {selectMode && selectedDays.size === 0 && (
-        <div className="text-xs text-fg-muted text-center -mt-2">
-          Tap any day to add it to the summary.
-        </div>
-      )}
+      <div className="px-4 md:px-10 mt-2">
+        <div className="card overflow-hidden">
+          {rows.map((row) => {
+            // Use the LOCAL date here — today.toISOString().slice(0,10) returns
+            // the UTC date, which can disagree with the user's local date right
+            // around midnight.
+            const isToday = row.date === todayIso
+            const isPast = row.date < todayIso
+            const date = new Date(row.date + 'T00:00:00')
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6
+            const expanded = expandedDays.has(row.day)
+            const isSelected = selectedDays.has(row.day)
+            const names = [...row.txs.map(txDescription), ...row.pending.map((p) => p.description)]
+            const onRowTap = () => (selectMode ? toggleSelect(row.day) : toggleDay(row.day))
 
-      <div className="card overflow-hidden">
-        {rows.map((row) => {
-          // Use the LOCAL date here — today.toISOString().slice(0,10) returns
-          // the UTC date, which can disagree with the user's local date right
-          // around midnight (e.g. CEST 00:30 → UTC still on the previous day),
-          // making yesterday's row light up as "today".
-          const todayIso = isoDate(today)
-          const isToday = row.date === todayIso
-          const isPast = row.date < todayIso
-          const dow = new Date(row.date + 'T00:00:00').getDay()
-          const isWeekend = dow === 0 || dow === 6
-          const expanded = expandedDays.has(row.day)
-          const entryCount = row.txs.length + row.pending.length
-          const isSelected = selectedDays.has(row.day)
-          const bgClass = isSelected
-            ? 'bg-accent/10 hover:bg-accent/15'
-            : isToday ? 'bg-accent/5' : isWeekend ? 'bg-bg-elev/30 hover:bg-bg-elev/50' : 'hover:bg-bg-elev/40'
-
-          // Reused day-badge cluster (chevron + numbered button, OR checkbox in select mode)
-          const DayBadge = (
-            <div className="flex items-center gap-1.5">
-              {selectMode ? (
-                <button
-                  type="button"
-                  onClick={() => toggleSelect(row.day)}
-                  aria-pressed={isSelected}
-                  aria-label={isSelected ? 'Deselect day' : 'Select day'}
-                  className={`shrink-0 w-6 h-6 grid place-items-center rounded-md transition-colors ${isSelected ? 'bg-accent text-accent-fg' : 'text-fg-subtle hover:text-fg hover:bg-bg-elev'}`}
-                >
-                  {isSelected ? <SquareCheckBig className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => toggleDay(row.day)}
-                  aria-expanded={expanded}
-                  aria-label={expanded ? 'Collapse day' : 'Expand day'}
-                  className="shrink-0 w-6 h-6 grid place-items-center rounded-md text-fg-subtle hover:text-fg hover:bg-bg-elev transition-colors"
-                >
-                  <ChevronRight className={`w-4 h-4 transition-transform ${expanded ? 'rotate-90' : ''}`} />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => selectMode ? toggleSelect(row.day) : toggleDay(row.day)}
-                className={`relative w-7 h-7 grid place-items-center rounded-lg text-xs font-semibold stat-num transition-transform active:scale-95 ${isSelected ? 'bg-accent text-accent-fg ring-2 ring-accent/40' : isToday ? 'bg-accent text-accent-fg' : isPast ? 'bg-bg-elev text-fg-muted' : 'border border-border text-fg-muted'}`}
-                title={selectMode ? (isSelected ? 'Deselect' : 'Select') : (expanded ? 'Collapse' : 'Expand')}
-              >
-                {row.day}
-                {isWeekend && !isToday && !isSelected && (
-                  <Beer aria-hidden className="absolute -top-1 -right-1 w-3 h-3 text-amber-400 drop-shadow" />
-                )}
-              </button>
-            </div>
-          )
-
-          // Collapsed compact layout — matches design feedback 2
-          if (!expanded) {
             return (
               <div
                 key={row.day}
                 ref={isToday ? todayRowRef : undefined}
-                className={`grid grid-cols-[auto_1fr_auto_auto] md:grid-cols-[60px_1fr_120px_120px] gap-3 px-4 py-3 border-b border-border last:border-b-0 transition-colors ${bgClass}`}
+                className={`border-b border-border/70 last:border-b-0 transition-colors ${
+                  isSelected ? 'bg-fg/[0.06]' : isToday ? 'bg-fg/[0.035]' : ''
+                }`}
               >
-                {DayBadge}
                 <button
                   type="button"
-                  onClick={() => selectMode ? toggleSelect(row.day) : toggleDay(row.day)}
-                  className="min-w-0 text-left"
+                  onClick={onRowTap}
+                  aria-expanded={selectMode ? undefined : expanded}
+                  aria-pressed={selectMode ? isSelected : undefined}
+                  data-no-press
+                  className="w-full grid grid-cols-[44px_1fr_auto] md:grid-cols-[52px_1fr_150px_130px] items-center gap-3 md:gap-4 px-4 py-3 text-left hover:bg-bg-elev/40 transition-colors"
                 >
-                  <div className={`font-semibold stat-num truncate ${row.runningBalance === 0 ? 'text-fg-muted' : row.runningBalance > 0 ? 'text-fg' : 'text-negative'}`}>
-                    {formatMoney(row.runningBalance, currency)}
-                  </div>
-                  <div className="text-xs text-fg-subtle">
-                    {entryCount > 0
-                      ? <>{entryCount} {entryCount === 1 ? 'entry' : 'entries'} · tap to expand</>
-                      : <span className="hover:text-accent transition-colors">no entries · tap to add</span>}
-                  </div>
+                  {/* Day: weekday over date; today gets a filled badge, selection a check. */}
+                  <span className="flex flex-col items-center leading-none">
+                    <span className={`text-[11px] font-medium ${isWeekend ? 'text-fg-subtle' : 'text-fg-muted'}`}>
+                      {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                    </span>
+                    <span
+                      className={`mt-1 w-8 h-8 grid place-items-center rounded-full stat-num text-[15px] font-semibold ${
+                        isSelected
+                          ? 'bg-fg text-bg'
+                          : isToday
+                            ? 'bg-fg text-bg'
+                            : isPast
+                              ? 'text-fg-subtle'
+                              : 'text-fg'
+                      }`}
+                    >
+                      {isSelected ? <Check className="w-4 h-4" /> : row.day}
+                    </span>
+                  </span>
+
+                  <span className="min-w-0">
+                    <span
+                      className={`block stat-num text-[15px] font-semibold truncate ${
+                        row.runningBalance < 0 ? 'text-negative' : isPast ? 'text-fg-muted' : 'text-fg'
+                      }`}
+                    >
+                      {formatMoney(row.runningBalance, currency)}
+                    </span>
+                    <span className="block text-[13px] text-fg-subtle truncate mt-0.5">
+                      {names.length > 0 ? names.join(' · ') : 'Nothing planned'}
+                    </span>
+                  </span>
+
+                  {/* Mobile: day flow stacked on the right, only what's non-zero. */}
+                  <span className="md:hidden text-right stat-num text-[14px] leading-tight">
+                    {row.expense > 0 && <span className="block">−{formatMoney(row.expense, currency)}</span>}
+                    {row.income > 0 && <span className="block text-positive">+{formatMoney(row.income, currency)}</span>}
+                  </span>
+                  <span className="hidden md:block text-right stat-num text-[14px] text-positive">
+                    {row.income > 0 ? `+${formatMoney(row.income, currency)}` : ''}
+                  </span>
+                  <span className="hidden md:block text-right stat-num text-[14px]">
+                    {row.expense > 0 ? `−${formatMoney(row.expense, currency)}` : ''}
+                  </span>
                 </button>
-                <div className="text-right stat-num text-sm self-center">
-                  {row.income > 0
-                    ? <span className="text-positive">+{formatMoney(row.income, currency)}</span>
-                    : <span className="text-fg-subtle">—</span>}
-                </div>
-                <div className="text-right stat-num text-sm self-center">
-                  {row.expense > 0
-                    ? <span className="text-negative">−{formatMoney(row.expense, currency)}</span>
-                    : <span className="text-fg-subtle">—</span>}
-                </div>
+
+                {expanded && !selectMode && (
+                  <div className="pl-[76px] md:pl-[84px] pr-4 pb-3 -mt-1 space-y-0.5">
+                    {row.txs.map((t) => {
+                      const cat = txCat(t)
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setEditing(t)}
+                          data-no-press
+                          className="w-full flex items-center gap-2.5 py-1.5 px-2 -mx-2 rounded-lg text-left hover:bg-bg-elev/60 active:bg-bg-elev transition-colors"
+                        >
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: cat?.color ?? 'rgb(var(--border-strong))' }} />
+                          <span className="truncate text-[14px] flex-1">{txDescription(t)}</span>
+                          {t.is_shared && <Share2 className="w-3.5 h-3.5 text-fg-subtle shrink-0" aria-label="Shared" />}
+                          <span className={`stat-num text-[14px] shrink-0 ${Number(t.amount) >= 0 ? 'text-positive' : 'text-fg-muted'}`}>
+                            {formatMoney(Number(t.amount), currency)}
+                          </span>
+                        </button>
+                      )
+                    })}
+                    {row.pending.map((p) => (
+                      <button
+                        key={`${p.rule_id}-${row.day}`}
+                        type="button"
+                        onClick={() =>
+                          setEditingPending({
+                            rule_id: p.rule_id,
+                            date: row.date,
+                            amount: p.amount,
+                            description: p.description,
+                            categoryId: p.categoryId,
+                          })
+                        }
+                        data-no-press
+                        title="Recurring — editing changes this day only"
+                        className="w-full flex items-center gap-2.5 py-1.5 px-2 -mx-2 rounded-lg text-left hover:bg-bg-elev/60 active:bg-bg-elev transition-colors"
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ background: p.categoryId ? catMap[p.categoryId]?.color ?? 'rgb(var(--border-strong))' : 'rgb(var(--border-strong))' }}
+                        />
+                        <span className="truncate text-[14px] flex-1">{p.description}</span>
+                        <Repeat className="w-3.5 h-3.5 text-fg-subtle shrink-0" aria-label="Recurring" />
+                        <span className={`stat-num text-[14px] shrink-0 ${p.amount >= 0 ? 'text-positive' : 'text-fg-muted'}`}>
+                          {formatMoney(p.amount, currency)}
+                          {p.overridden && (
+                            <span className="ml-1.5 text-fg-subtle line-through text-[12px]">
+                              {formatMoney(p.originalAmount, currency)}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setAddForDate(row.date)}
+                      data-no-press
+                      className="flex items-center gap-2.5 py-1.5 px-2 -mx-2 rounded-lg text-[14px] text-fg-muted hover:text-fg hover:bg-bg-elev/60 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add entry
+                    </button>
+                  </div>
+                )}
               </div>
             )
-          }
-
-          // Expanded full layout — keeps balance column + per-entry rows
-          return (
-            <div
-              key={row.day}
-              ref={isToday ? todayRowRef : undefined}
-              className={`grid md:grid-cols-[60px_140px_1fr_140px_140px] gap-3 px-4 py-3 border-b border-border last:border-b-0 transition-colors ${bgClass}`}
-            >
-              {DayBadge}
-
-              <div className="md:text-right space-y-0.5">
-                <div className={`stat-num font-semibold ${row.runningBalance >= 0 ? 'text-fg' : 'text-negative'}`}>
-                  {formatMoney(row.runningBalance, currency)}
-                </div>
-              </div>
-
-              <div className="space-y-1.5 min-w-0">
-                {row.txs.length === 0 && row.pending.length === 0 && (
-                  <button
-                    onClick={() => setAddForDate(row.date)}
-                    className="text-xs text-fg-subtle hover:text-accent transition-colors"
-                  >
-                    + add entry
-                  </button>
-                )}
-                {row.txs.map((t) => {
-                  const cat = txCat(t)
-                  return (
-                  <div key={t.id} className="group flex items-center gap-2 text-sm min-w-0">
-                    <span
-                      className="w-1.5 h-1.5 rounded-full shrink-0"
-                      style={{ background: cat?.color ?? '#888' }}
-                    />
-                    <span className="truncate text-fg">{txDescription(t)}</span>
-                    {t.is_shared && (
-                      <span
-                        className="shrink-0 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent"
-                        title="Visible on your public share page"
-                      >
-                        shared
-                      </span>
-                    )}
-                    <span className={`stat-num text-xs ml-1 ${Number(t.amount) >= 0 ? 'text-positive' : 'text-negative'}`}>
-                      {formatMoney(Number(t.amount), currency)}
-                    </span>
-                    <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => setEditing(t)} className="btn-ghost !p-1" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => deleteTx.mutate(t.id)} className="btn-ghost !p-1 text-negative" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
-                    </div>
-                  </div>
-                  )
-                })}
-                {row.pending.map((p) => (
-                  <div
-                    key={`${p.rule_id}-${row.day}`}
-                    className="group flex items-center gap-2 text-sm min-w-0 text-fg-muted"
-                    title="From a recurring rule — edit to override for this day only."
-                  >
-                    <span
-                      className="w-1.5 h-1.5 rounded-full shrink-0 ring-1 ring-border"
-                      style={{ background: p.categoryId ? catMap[p.categoryId]?.color ?? 'transparent' : 'transparent' }}
-                    />
-                    <span className="truncate">{p.description}</span>
-                    <span className="text-[10px] text-fg-subtle uppercase tracking-wider shrink-0">recurring</span>
-                    {p.overridden && (
-                      <span
-                        className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent shrink-0"
-                        title={`Trimmed from ${formatMoney(p.originalAmount, currency)} via rebalance`}
-                      >
-                        trimmed
-                      </span>
-                    )}
-                    <span className={`stat-num text-xs ml-1 ${p.amount >= 0 ? 'text-positive' : 'text-negative'}`}>
-                      {formatMoney(p.amount, currency)}
-                      {p.overridden && (
-                        <span className="ml-1 text-fg-subtle line-through text-[10px]">
-                          {formatMoney(p.originalAmount, currency)}
-                        </span>
-                      )}
-                    </span>
-                    <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => setEditingPending({
-                          rule_id: p.rule_id,
-                          date: row.date,
-                          amount: p.amount,
-                          description: p.description,
-                          categoryId: p.categoryId,
-                        })}
-                        className="btn-ghost !p-1"
-                        title="Edit for this day (creates a per-day override, doesn't change the rule)"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {(row.txs.length > 0 || row.pending.length > 0) && (
-                  <button
-                    onClick={() => setAddForDate(row.date)}
-                    className="text-[11px] text-fg-subtle hover:text-accent transition-colors"
-                  >
-                    + add entry
-                  </button>
-                )}
-              </div>
-
-              <div className="hidden md:block md:text-right stat-num text-sm">
-                {row.income > 0 ? (
-                  <div className="text-positive">{formatMoney(row.income, currency)}</div>
-                ) : <div className="text-fg-subtle">—</div>}
-              </div>
-              <div className="hidden md:block md:text-right stat-num text-sm">
-                {row.expense > 0 ? (
-                  <div className="text-negative">{formatMoney(row.expense, currency)}</div>
-                ) : <div className="text-fg-subtle">—</div>}
-              </div>
-            </div>
-          )
-        })}
+          })}
+        </div>
       </div>
 
       {editing && (
@@ -565,8 +491,9 @@ export function Ledger() {
         <button
           type="button"
           onClick={() => setSummaryOpen(true)}
-          className="fixed z-40 right-[5.75rem] bottom-[calc(5rem+env(safe-area-inset-bottom))] md:right-24 md:bottom-6 glass rounded-full px-4 h-14 grid place-items-center text-accent font-medium shadow-soft active:scale-95"
+          className="fixed z-40 left-1/2 -translate-x-1/2 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] md:bottom-8 rounded-full px-5 h-12 grid place-items-center bg-fg text-bg font-medium shadow-[0_8px_24px_-6px_rgb(0_0_0/0.35)]"
           aria-label={`Open summary for ${selectedDays.size} selected days`}
+          data-no-press
         >
           <span className="inline-flex items-center gap-2 text-sm">
             <ListChecks className="w-5 h-5" />

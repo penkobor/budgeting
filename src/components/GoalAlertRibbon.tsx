@@ -62,27 +62,19 @@ export function GoalAlertRibbon() {
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
-          className="rounded-xl bg-negative/10 ring-1 ring-negative/30 text-fg flex items-center gap-3 p-3 md:p-3.5"
+          className="rounded-2xl bg-negative/[0.08] flex items-center gap-3 px-4 py-3"
         >
-          <div className="w-8 h-8 rounded-lg grid place-items-center bg-negative/15 text-negative shrink-0">
-            <AlertTriangle className="w-4 h-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium">
-              You're projected to miss your monthly goal by{' '}
-              <span className="stat-num">{formatMoney(overBy, currency)}</span>
-            </div>
-            <div className="text-[11px] md:text-xs text-fg-muted mt-0.5 stat-num">
-              Goal {formatMoney(Number(goal!.amount), currency)} · projected{' '}
-              {formatMoney(projectedEnd, currency)}
+          <AlertTriangle className="w-4 h-4 text-negative shrink-0" />
+          <div className="min-w-0 flex-1 text-[14px]">
+            Short of this month&apos;s goal by{' '}
+            <span className="stat-num font-medium text-negative">{formatMoney(overBy, currency)}</span>
+            <div className="text-[12px] text-fg-muted mt-0.5 stat-num">
+              Goal {formatMoney(Number(goal!.amount), currency)} · projected {formatMoney(projectedEnd, currency)}
             </div>
           </div>
-          <Link
-            to="/?lens=month"
-            className="btn-ghost shrink-0 !px-2.5 !py-1.5 text-xs flex items-center gap-1"
-          >
+          <Link to="/plan" className="text-[13px] font-medium text-fg-muted hover:text-fg flex items-center gap-0.5 shrink-0">
             Review
-            <ChevronRight className="w-3.5 h-3.5" />
+            <ChevronRight className="w-4 h-4" />
           </Link>
         </motion.div>
       )}

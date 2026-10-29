@@ -168,7 +168,7 @@ export function WeekLens() {
       <header className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="label">{offsetLabel}</div>
-          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5 truncate">
+          <h1 className="page-title mt-0.5 truncate">
             {start.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} — {end.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
           </h1>
         </div>
@@ -176,16 +176,16 @@ export function WeekLens() {
           <button
             type="button"
             onClick={() => setWeekOffset((w) => w - 1)}
-            className="btn-outline w-9 h-9 px-0 grid place-items-center"
+            className="icon-btn"
             aria-label="Previous week"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-5 h-5" />
           </button>
           {weekOffset !== 0 && (
             <button
               type="button"
               onClick={() => setWeekOffset(0)}
-              className="btn-outline text-xs px-2.5"
+              className="btn-tinted !rounded-full !py-1.5 text-[13px]"
             >
               Today
             </button>
@@ -193,10 +193,10 @@ export function WeekLens() {
           <button
             type="button"
             onClick={() => setWeekOffset((w) => w + 1)}
-            className="btn-outline w-9 h-9 px-0 grid place-items-center"
+            className="icon-btn"
             aria-label="Next week"
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-5 h-5" />
           </button>
         </div>
       </header>
@@ -207,7 +207,7 @@ export function WeekLens() {
         className="card p-5 md:p-7"
       >
         <div className="label mb-1">Planned</div>
-        <div className="stat-num font-semibold text-4xl md:text-5xl">
+        <div className="hero-num text-[44px] md:text-[56px] mt-1">
           {formatMoney(totalExpense, currency)}
         </div>
         <div className="text-xs md:text-sm text-fg-subtle mt-2 stat-num">

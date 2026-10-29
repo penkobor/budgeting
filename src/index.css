@@ -3,37 +3,45 @@
 @tailwind utilities;
 
 :root {
-  --bg: 250 250 252;
-  --bg-elev: 255 255 255;
+  /* Light — Apple grouped-list palette: grey canvas, white cards. */
+  --bg: 242 242 247;
+  --bg-elev: 234 234 239;
   --bg-card: 255 255 255;
-  --fg: 17 24 39;
-  --fg-muted: 75 85 99;
-  --fg-subtle: 156 163 175;
-  --border: 229 231 235;
-  --border-strong: 209 213 219;
-  /* Accent is intentionally neutral now — active controls use the foreground
+  --fg: 28 28 30;
+  --fg-muted: 99 99 102;
+  --fg-subtle: 142 142 147;
+  --border: 226 226 231;
+  --border-strong: 209 209 214;
+  /* Accent is intentionally neutral — active controls use the foreground
      color so emphasis comes from contrast and shape, not hue. */
-  --accent: 17 24 39;
+  --accent: 28 28 30;
   --accent-fg: 255 255 255;
-  --positive: 16 185 129;
-  --negative: 239 68 68;
-  --warning: 245 158 11;
+  --positive: 36 138 82;
+  --negative: 210 64 58;
+  --warning: 196 120 20;
+  --focus: 0 122 255;
+  color-scheme: light;
 }
 
+/* Dark — soft graphite instead of near-black, off-white instead of pure
+   white (~13:1 instead of ~20:1). Less halation for astigmatic eyes;
+   status colors are desaturated so they don't vibrate on the dark canvas. */
 .dark {
-  --bg: 9 9 12;
-  --bg-elev: 18 18 24;
-  --bg-card: 24 24 31;
-  --fg: 244 244 246;
-  --fg-muted: 161 161 170;
-  --fg-subtle: 113 113 122;
-  --border: 39 39 48;
-  --border-strong: 63 63 75;
-  --accent: 244 244 246;
-  --accent-fg: 17 24 39;
-  --positive: 52 211 153;
-  --negative: 248 113 113;
-  --warning: 251 191 36;
+  --bg: 24 24 27;
+  --bg-elev: 44 44 49;
+  --bg-card: 34 34 38;
+  --fg: 226 226 230;
+  --fg-muted: 163 163 170;
+  --fg-subtle: 120 120 128;
+  --border: 50 50 56;
+  --border-strong: 68 68 76;
+  --accent: 226 226 230;
+  --accent-fg: 24 24 27;
+  --positive: 120 196 150;
+  --negative: 232 132 124;
+  --warning: 226 178 96;
+  --focus: 100 150 235;
+  color-scheme: dark;
 }
 
 html, body, #root { height: 100%; }
@@ -57,6 +65,19 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: rgb(var(--fg-subtle)); background-clip: padding-box; }
 
 /* On touch devices (mobile) hide scrollbars completely while preserving scroll. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  button:active, .btn:active { transform: none !important; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass, .dark .glass { background: rgb(var(--bg-card)) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+}
+
 @media (hover: none) and (pointer: coarse) {
   ::-webkit-scrollbar { display: none; width: 0; height: 0; }
   * { scrollbar-width: none; -ms-overflow-style: none; }
@@ -76,57 +97,71 @@ input[type="time"] {
   width: 100%;
 }
 
+/* Keyboard focus ring: a calm blue in both themes, never the near-white
+   dark-mode accent (that read as stray white strips around wide rows). */
 :focus-visible {
-  outline: 2px solid rgb(var(--accent));
+  outline: 2px solid rgb(var(--focus) / 0.7);
   outline-offset: 2px;
-  border-radius: 6px;
+}
+/* Text fields draw their own focus state (border + surface change). */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+/* Touch devices have no keyboard focus to show; Radix returns focus to the
+   tapped row after a sheet closes, which would otherwise leave a ring. */
+@media (hover: none) and (pointer: coarse) {
+  :focus-visible { outline: none; }
 }
 
 @layer components {
-  .card { @apply bg-bg-card border border-border rounded-2xl shadow-soft; }
+  .card { @apply bg-bg-card rounded-[20px] ring-1 ring-border/70 shadow-soft; }
 
-  /* ── Buttons (iOS 26 liquid-glass press feel) ─────────────────────────────
-     • Tap = quick squish to 0.94, brightness/saturation pulse for glass
-     • Release = spring back via overshoot easing
-     • -webkit-tap-highlight-color removed so the press effect is what the
-       user sees, not the iOS default grey flash. */
+  /* ── Buttons ──────────────────────────────────────────────────────────────
+     Press feedback lands on pointer-down: a quick, small squish with no
+     overshoot on release (critically damped). */
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 md:py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed;
     transition:
-      transform 380ms cubic-bezier(0.22, 1.4, 0.36, 1),
-      filter   180ms ease-out,
+      transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
       background-color 150ms ease-out,
       border-color     150ms ease-out,
       color            150ms ease-out,
       box-shadow       200ms ease-out;
     -webkit-tap-highlight-color: transparent;
-    will-change: transform, filter;
   }
   .btn:active {
-    transform: scale(0.94);
-    transition-duration: 90ms, 110ms, 100ms, 100ms, 100ms, 100ms;
+    transform: scale(0.97);
+    transition-duration: 80ms, 100ms, 100ms, 100ms, 100ms;
   }
-  .btn-primary { @apply btn bg-accent text-accent-fg hover:bg-accent/90 shadow-soft; }
-  .btn-ghost   { @apply btn bg-transparent text-fg hover:bg-bg-elev border border-transparent hover:border-border; }
+  .btn-primary { @apply btn bg-accent text-accent-fg hover:bg-accent/90; }
+  .btn-ghost   { @apply btn bg-transparent text-fg hover:bg-bg-elev border border-transparent; }
   .btn-outline { @apply btn bg-transparent border border-border hover:bg-bg-elev text-fg; }
+  .btn-tinted  { @apply btn bg-bg-elev text-fg hover:bg-border; }
+  .icon-btn {
+    @apply inline-grid place-items-center w-11 h-11 md:w-9 md:h-9 rounded-full text-fg-muted hover:text-fg hover:bg-bg-elev transition-colors;
+  }
 
-  /* Generic press response for any button that isn't a .btn (e.g. Dashboard
-     lens chips, FAB, day badges, lucide icon buttons). Keeps the
-     squish + spring consistent app-wide. */
+  /* Generic press response for any button that isn't a .btn. */
   button:not(.btn):not([data-no-press]) {
-    transition:
-      transform 380ms cubic-bezier(0.22, 1.4, 0.36, 1),
-      filter   180ms ease-out;
+    transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
     -webkit-tap-highlight-color: transparent;
   }
   button:not(.btn):not([data-no-press]):active {
-    transform: scale(0.94);
-    transition-duration: 90ms, 110ms;
+    transform: scale(0.97);
+    transition-duration: 80ms;
   }
 
-  .input { @apply w-full rounded-xl bg-bg-elev border border-border px-3.5 py-2.5 md:py-2 text-base md:text-sm placeholder:text-fg-subtle focus:border-accent focus:outline-none transition; }  .chip { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-bg-elev border border-border text-fg-muted; }
-  .label { @apply text-xs font-medium uppercase tracking-wider text-fg-muted; }
-  .stat-num { @apply font-mono tabular-nums; }
+  .input { @apply w-full rounded-xl bg-bg-elev/70 border border-transparent px-3.5 py-2.5 md:py-2 text-base md:text-sm placeholder:text-fg-subtle focus:border-border-strong focus:bg-bg-card focus:outline-none transition; }
+  .chip { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-bg-elev text-fg-muted; }
+  /* Section caption: sentence case, quiet — no shouting uppercase. */
+  .label { @apply text-[13px] font-medium text-fg-muted; }
+  /* Money: system font with tabular figures, so columns line up without
+     switching to a monospace face. */
+  .stat-num { @apply tabular-nums; font-feature-settings: "tnum" 1; }
+  .page-title { @apply text-[28px] md:text-[32px] leading-tight font-semibold tracking-[-0.02em]; }
+  .hero-num { @apply tabular-nums font-semibold tracking-[-0.035em] leading-none; }
 
   /* ── Liquid Glass (Apple iOS 26 style, CSS-only, Safari-friendly) ───────── */
   .glass {

@@ -1,8 +1,8 @@
 import { Command } from 'cmdk'
 import { useNavigate } from 'react-router-dom'
-import { useUi } from '@/store/ui'
+import { useUi, useIsDark } from '@/store/ui'
 import {
-  LayoutDashboard, Table, Repeat, Tags, Settings as SettingsIcon,
+  Sun as TodayIcon, Rows3, Compass, Repeat, Tags, Settings as SettingsIcon,
   Plus, Moon, Sun, LogOut, Search,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -16,7 +16,7 @@ export function CommandPalette({ onAdd }: CommandPaletteProps) {
   const open = useUi((s) => s.paletteOpen)
   const setOpen = useUi((s) => s.setPaletteOpen)
   const toggleTheme = useUi((s) => s.toggleTheme)
-  const theme = useUi((s) => s.theme)
+  const dark = useIsDark()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -56,13 +56,14 @@ export function CommandPalette({ onAdd }: CommandPaletteProps) {
 
           <Command.Group heading="Actions" className="text-xs text-fg-subtle px-2 pb-1 pt-2 [&_[cmdk-group-heading]]:label">
             <Item onSelect={() => { setOpen(false); onAdd() }} icon={<Plus className="w-4 h-4" />} label="Add transaction" hint="N" />
-            <Item onSelect={toggleTheme} icon={theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />} label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`} />
+            <Item onSelect={toggleTheme} icon={dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />} label={`Switch to ${dark ? 'light' : 'dark'} theme`} />
             <Item onSelect={async () => { await supabase.auth.signOut() }} icon={<LogOut className="w-4 h-4" />} label="Sign out" />
           </Command.Group>
 
           <Command.Group heading="Go to">
-            <Item onSelect={() => go('/')} icon={<LayoutDashboard className="w-4 h-4" />} label="Dashboard" />
-            <Item onSelect={() => go('/ledger')} icon={<Table className="w-4 h-4" />} label="Ledger" />
+            <Item onSelect={() => go('/')} icon={<TodayIcon className="w-4 h-4" />} label="Today" />
+            <Item onSelect={() => go('/ledger')} icon={<Rows3 className="w-4 h-4" />} label="Ledger" />
+            <Item onSelect={() => go('/plan')} icon={<Compass className="w-4 h-4" />} label="Plan" />
             <Item onSelect={() => go('/recurring')} icon={<Repeat className="w-4 h-4" />} label="Recurring" />
             <Item onSelect={() => go('/categories')} icon={<Tags className="w-4 h-4" />} label="Categories" />
             <Item onSelect={() => go('/settings')} icon={<SettingsIcon className="w-4 h-4" />} label="Settings" />

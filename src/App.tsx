@@ -1,7 +1,12 @@
 import { HashRouter, Route, Routes, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MotionConfig } from 'framer-motion'
 import { Layout } from '@/components/Layout'
-import { Dashboard } from '@/pages/Dashboard'
+import { Dashboard, LensPage } from '@/pages/Dashboard'
+import { PlanPage } from '@/pages/Plan'
+import { MorePage } from '@/pages/More'
+import { WeekLens } from '@/pages/lenses/WeekLens'
+import { SharedLens } from '@/pages/lenses/SharedLens'
 import { Ledger } from '@/pages/Ledger'
 import { RecurringPage } from '@/pages/Recurring'
 import { CategoriesPage } from '@/pages/Categories'
@@ -34,6 +39,10 @@ function Gate() {
       <Route element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="/ledger" element={<Ledger />} />
+        <Route path="/plan" element={<PlanPage />} />
+        <Route path="/week" element={<LensPage><WeekLens /></LensPage>} />
+        <Route path="/shared" element={<LensPage><SharedLens /></LensPage>} />
+        <Route path="/more" element={<MorePage />} />
         <Route path="/recurring" element={<RecurringPage />} />
         <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/assets" element={<AssetsPage />} />
@@ -61,10 +70,12 @@ function TopRoutes() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <HashRouter>
-        <TopRoutes />
-      </HashRouter>
-      <ToastHost />
+      <MotionConfig reducedMotion="user">
+        <HashRouter>
+          <TopRoutes />
+        </HashRouter>
+        <ToastHost />
+      </MotionConfig>
     </QueryClientProvider>
   )
 }

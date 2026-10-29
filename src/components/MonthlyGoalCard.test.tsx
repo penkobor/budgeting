@@ -113,5 +113,5 @@ it('looks up the dashboard warning with the same YYYY-MM key as the editor', asy
   await act(async () => root.render(<MemoryRouter><GoalAlertRibbon /></MemoryRouter>))
   expect(mocks.goal.mock.calls.at(-1)?.[0]).toMatch(/^\d{4}-\d{2}$/)
   expect(host.textContent).toContain('40,000')
-  expect(host.querySelector('a')?.getAttribute('href')).toBe('/?lens=month')
+  expect(host.querySelector('a')?.getAttribute('href')).toBe('/plan')
 })

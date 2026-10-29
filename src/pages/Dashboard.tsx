@@ -1,69 +1,28 @@
-import { useSearchParams } from 'react-router-dom'
-import { Sun, Calendar, CalendarDays, TrendingUp, ShoppingBag, Share2 } from 'lucide-react'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { TodayLens } from './lenses/TodayLens'
-import { WeekLens } from './lenses/WeekLens'
-import { MonthLens } from './lenses/MonthLens'
-import { ForecastLens } from './lenses/ForecastLens'
-import { PlanLens } from './lenses/PlanLens'
-import { SharedLens } from './lenses/SharedLens'
-import { GoalAlertRibbon } from '@/components/GoalAlertRibbon'
 
-const LENSES = [
-  { id: 'today', label: 'Today', icon: Sun },
-  { id: 'week', label: 'Week', icon: Calendar },
-  { id: 'month', label: 'Month', icon: CalendarDays },
-  { id: 'forecast', label: 'Forecast', icon: TrendingUp },
-  { id: 'plan', label: 'Plan', icon: ShoppingBag },
-  { id: 'shared', label: 'Shared', icon: Share2 },
-] as const
-
-type LensId = typeof LENSES[number]['id']
-
-function isLens(v: string | null): v is LensId {
-  return !!v && (LENSES as readonly { id: string }[]).some((l) => l.id === v)
+/** Where the old `/?lens=…` links now live. */
+const LEGACY_LENS_ROUTES: Record<string, string> = {
+  week: '/week',
+  month: '/plan',
+  forecast: '/plan?view=forecast',
+  plan: '/plan?view=purchases',
+  shared: '/shared',
 }
 
 export function Dashboard() {
-  const [params, setParams] = useSearchParams()
-  const param = params.get('lens')
-  const lens: LensId = isLens(param) ? param : 'today'
-
-  const setLens = (id: LensId) => {
-    const next = new URLSearchParams(params)
-    if (id === 'today') next.delete('lens')
-    else next.set('lens', id)
-    setParams(next, { replace: true })
-  }
+  const [params] = useSearchParams()
+  const legacy = LEGACY_LENS_ROUTES[params.get('lens') ?? '']
+  if (legacy) return <Navigate to={legacy} replace />
 
   return (
-    <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-7xl mx-auto">
-      {/* Period switcher — floating liquid-glass pills (no bar bg, each chip is its own glass element) */}
-      <div className="sticky top-[calc(env(safe-area-inset-top)-0.25rem)] md:top-0 z-30 -mx-4 md:-mx-8 px-4 md:px-8 py-2 -mt-4 md:-mt-8 mb-2 pointer-events-none">
-        <div className="flex gap-2 overflow-x-auto -mx-1 px-1 py-1 pointer-events-auto">
-          {LENSES.map(({ id, label, icon: Icon }) => {
-            const active = lens === id
-            return (
-              <button
-                key={id}
-                onClick={() => setLens(id)}
-                className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all ${active ? 'bg-accent text-accent-fg shadow-soft' : 'glass text-fg hover:text-fg'}`}
-              >
-                <Icon className="w-4 h-4" />
-                {label}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {lens !== 'month' && <GoalAlertRibbon />}
-
-      {lens === 'today' && <TodayLens />}
-      {lens === 'week' && <WeekLens />}
-      {lens === 'month' && <MonthLens />}
-      {lens === 'forecast' && <ForecastLens />}
-      {lens === 'plan' && <PlanLens />}
-      {lens === 'shared' && <SharedLens />}
+    <div className="px-4 py-5 md:px-10 md:py-10 max-w-3xl mx-auto">
+      <TodayLens />
     </div>
   )
+}
+
+/** Wraps a lens that used to live behind a Dashboard chip as its own page. */
+export function LensPage({ children }: { children: React.ReactNode }) {
+  return <div className="px-4 py-5 md:px-10 md:py-10 space-y-6 md:space-y-8 max-w-4xl mx-auto">{children}</div>
 }

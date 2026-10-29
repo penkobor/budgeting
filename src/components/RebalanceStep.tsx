@@ -160,7 +160,7 @@ export function RebalanceStep({
                         else next.delete(k)
                         setManualDeltas(next)
                       }}
-                      className="w-20 text-right text-sm stat-num bg-bg-elev rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-accent/60"
+                      className="w-20 text-right text-sm stat-num bg-bg-elev rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-border-strong"
                       placeholder="0"
                     />
                   </div>

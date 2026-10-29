@@ -1,7 +1,22 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-type Theme = 'light' | 'dark'
+export type Theme = 'system' | 'light' | 'dark'
+
+const THEME_COLORS = { light: '#f2f2f7', dark: '#18181b' } as const
+const darkQuery = typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null
+
+function isDark(t: Theme) {
+  return t === 'dark' || (t === 'system' && !!darkQuery?.matches)
+}
+
+function applyTheme(t: Theme) {
+  const dark = isDark(t)
+  document.documentElement.classList.toggle('dark', dark)
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
+    m.setAttribute('content', dark ? THEME_COLORS.dark : THEME_COLORS.light)
+  })
+}
 
 interface UiState {
   theme: Theme
@@ -14,26 +29,32 @@ interface UiState {
 export const useUi = create<UiState>()(
   persist(
     (set, get) => ({
-      theme: 'dark',
+      theme: 'system',
       paletteOpen: false,
       setTheme: (t) => {
-        document.documentElement.classList.toggle('dark', t === 'dark')
+        applyTheme(t)
         set({ theme: t })
       },
-      toggleTheme: () => get().setTheme(get().theme === 'dark' ? 'light' : 'dark'),
+      toggleTheme: () => get().setTheme(isDark(get().theme) ? 'light' : 'dark'),
       setPaletteOpen: (open) => set({ paletteOpen: open }),
     }),
-    { name: 'budgeting-ui' }
+    {
+      name: 'budgeting-ui',
+      version: 1,
+      // v0 defaulted to a hard 'dark'; v1 follows the OS appearance.
+      migrate: (state) => ({ ...(state as UiState), theme: 'system' }),
+    }
   )
 )
 
-// Apply theme class on first load
+export function useIsDark() {
+  return isDark(useUi((s) => s.theme))
+}
+
+// Apply theme on first load and follow OS changes while in 'system' mode.
 if (typeof window !== 'undefined') {
-  try {
-    const raw = localStorage.getItem('budgeting-ui')
-    const t = raw ? JSON.parse(raw)?.state?.theme : 'dark'
-    document.documentElement.classList.toggle('dark', t !== 'light')
-  } catch {
-    document.documentElement.classList.add('dark')
-  }
+  applyTheme(useUi.getState().theme)
+  darkQuery?.addEventListener('change', () => {
+    if (useUi.getState().theme === 'system') applyTheme('system')
+  })
 }

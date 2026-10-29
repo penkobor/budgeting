@@ -301,13 +301,11 @@ export function PlanLens() {
   })
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-6 md:space-y-8">
       <header>
-        <div className="label">Plan</div>
-        <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">Big purchases</h1>
-        <p className="text-fg-muted text-sm mt-1">
-          Sketch out major spends and see how they reshape the next 12 months. Stays local until you
-          commit it to the ledger.
+        <h1 className="page-title">Big purchases</h1>
+        <p className="text-fg-muted text-[15px] mt-1">
+          Try a purchase here first. It reaches the ledger only when you commit it.
         </p>
       </header>
 
@@ -414,12 +412,8 @@ export function PlanLens() {
       <section className="space-y-3">
         <div className="flex items-end justify-between gap-3">
           <div>
-            <div className="label">Upcoming on the ledger</div>
-            <h2 className="text-lg md:text-xl font-semibold mt-0.5">One-off planned expenses</h2>
-            <p className="text-fg-muted text-xs md:text-sm mt-1">
-              Future-dated entries already in the ledger that aren't recurring.
-              Edit or delete them here — changes apply to the same source as Ledger.
-            </p>
+            <h2 className="text-lg md:text-xl font-semibold tracking-[-0.01em]">Already on the ledger</h2>
+            <p className="text-fg-muted text-[13px] mt-0.5">Future one-off expenses. Tap an amount to change it.</p>
           </div>
           {upcomingNonRecurring.length > 0 && (
             <div className="text-right shrink-0">

@@ -1,23 +1,11 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  ChevronLeft,
-  ChevronRight,
-  Pencil,
-  Trash2,
-  Wallet,
-  FileEdit,
-  CheckCircle2,
-  X,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, Repeat, Plus, FilePen, Scale, CheckCircle2, Trash2, X } from 'lucide-react'
 import {
   useAssets,
   useCategories,
   useDeleteDraft,
   useDeleteDraftsForDate,
-  useDeleteTransaction,
   useDraftTransactions,
   useInsertTransactions,
   useMonthlyOpening,
@@ -26,12 +14,16 @@ import {
   useSettings,
   useTransactionsInRange,
 } from '@/hooks/queries'
-import { formatMoney, isoDate, monthKey, daysInMonth } from '@/lib/utils'
+import { formatMoney, isoDate, monthKey, daysInMonth, cn } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
-import { effectiveOccurrenceAmount } from '@/lib/projection'
+import { dailyTotals, effectiveOccurrenceAmount } from '@/lib/projection'
 import { AddTransactionDialog } from '@/components/AddTransactionDialog'
+import { BalanceOutDialog } from '@/components/BalanceOutDialog'
+import { GoalAlertRibbon } from '@/components/GoalAlertRibbon'
 import { pushToast } from '@/components/ui/Toast'
 import type { Transaction, TransactionInsert } from '@/lib/db.types'
+
+const UPCOMING_DAYS = 7
 
 function addDays(d: Date, n: number) {
   const out = new Date(d.getFullYear(), d.getMonth(), d.getDate())
@@ -39,383 +31,292 @@ function addDays(d: Date, n: number) {
   return out
 }
 
+function monthEndIso(d: Date) {
+  return isoDate(new Date(d.getFullYear(), d.getMonth(), daysInMonth(d.getFullYear(), d.getMonth())))
+}
+
+type Item =
+  | { key: string; amount: number; description: string; categoryId: string | null; recurring: false; tx: Transaction }
+  | {
+      key: string
+      amount: number
+      description: string
+      categoryId: string | null
+      recurring: true
+      ruleId: string
+      originalAmount: number
+      overridden: boolean
+    }
+
 /**
- * "Planned for the day" lens. Defaults to today; user can flip to neighboring
- * days with the chevrons. Shows the day's planned transactions, recurring
- * instances, totals, the running balance, and inline edit/delete actions
- * matching the Ledger.
+ * Today: what is planned for the day, the balance after it, and the next
+ * few days at a glance. Day chevrons move through the calendar; tapping an
+ * entry opens it for editing.
  */
 export function TodayLens() {
   const [dayOffset, setDayOffset] = useState(0)
   const today = useMemo(() => new Date(), [])
   const viewed = useMemo(() => addDays(today, dayOffset), [today, dayOffset])
   const viewedIso = isoDate(viewed)
+  const lastUpcoming = addDays(viewed, UPCOMING_DAYS)
   const monthIso = monthKey(viewed)
-  const lastDay = daysInMonth(viewed.getFullYear(), viewed.getMonth())
-  const toIso = `${viewed.getFullYear()}-${String(viewed.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  const nextMonthIso = monthKey(lastUpcoming)
+  const toIso = monthEndIso(lastUpcoming)
 
   const { data: settings } = useSettings()
   const { data: opening } = useMonthlyOpening(monthIso)
+  const { data: nextOpening } = useMonthlyOpening(nextMonthIso)
   const { data: txs = [] } = useTransactionsInRange(monthIso, toIso)
   const { data: rules = [] } = useRecurringRules()
   const { data: overrides = [] } = useRecurringOverridesInRange(monthIso, toIso)
-  const { data: personalCategories = [] } = useCategories()
-  const categories = personalCategories
+  const { data: categories = [] } = useCategories()
   const { data: assets = [] } = useAssets()
-  const deleteTx = useDeleteTransaction()
   const currency = settings?.currency ?? 'CZK'
   const assetBoost = useMemo(
     () => assets.reduce((s, a) => s + (a.include_in_balance ? Number(a.value) : 0), 0),
     [assets],
   )
-  const catMap = useMemo(
-    () => Object.fromEntries(categories.map((c) => [c.id, c])),
-    [categories],
-  )
+  const catMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c])), [categories])
 
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [editingPending, setEditingPending] = useState<
-    | { rule_id: string; date: string; amount: number; description: string; categoryId: string | null }
-    | null
+    { rule_id: string; date: string; amount: number; description: string; categoryId: string | null } | null
   >(null)
+  const [addOpen, setAddOpen] = useState(false)
+  const [draftOpen, setDraftOpen] = useState(false)
+  const [balanceOutOpen, setBalanceOutOpen] = useState(false)
 
-  const dayTxs = useMemo(() => txs.filter((t) => t.occurred_on === viewedIso), [txs, viewedIso])
+  // Day totals for the viewed month and, when the upcoming strip crosses
+  // into the next month, for that month too (each from its own opening).
+  const days = useMemo(() => {
+    const out = dailyTotals(monthIso, opening?.opening_balance ?? 0, txs, rules, overrides)
+    if (nextMonthIso !== monthIso) {
+      out.push(...dailyTotals(nextMonthIso, nextOpening?.opening_balance ?? 0, txs, rules, overrides))
+    }
+    return new Map(out.map((d) => [d.date, d]))
+  }, [monthIso, nextMonthIso, opening, nextOpening, txs, rules, overrides])
 
-  const dayRuleHits = useMemo(() => {
-    const out: Array<{
-      rule_id: string
-      amount: number
-      originalAmount: number
-      overridden: boolean
-      description: string
-      categoryId: string | null
-    }> = []
+  const todayTotals = days.get(viewedIso)
+  const dayExpense = todayTotals?.expense ?? 0
+  const dayIncome = todayTotals?.income ?? 0
+  const balance = todayTotals?.balance ?? 0
+
+  const upcoming = useMemo(
+    () =>
+      Array.from({ length: UPCOMING_DAYS }, (_, i) => {
+        const d = addDays(viewed, i + 1)
+        return { offset: dayOffset + i + 1, date: d, totals: days.get(isoDate(d)) }
+      }),
+    [viewed, dayOffset, days],
+  )
+
+  const items = useMemo<Item[]>(() => {
+    const dayTxs = txs.filter((t) => t.occurred_on === viewedIso)
+    const realised = new Set(dayTxs.map((t) => t.recurring_rule_id).filter(Boolean))
+    const out: Item[] = dayTxs.map((t) => ({
+      key: `tx-${t.id}`,
+      amount: Number(t.amount),
+      description: t.description?.trim() || (t.category_id ? catMap[t.category_id]?.name : null) || 'Untitled',
+      categoryId: t.category_id,
+      recurring: false,
+      tx: t,
+    }))
     const d = new Date(viewedIso + 'T00:00:00')
-    const realisedKeys = new Set(
-      txs
-        .filter((t) => t.recurring_rule_id && t.occurred_on === viewedIso)
-        .map((t) => t.recurring_rule_id),
-    )
     for (const r of rules) {
-      if (realisedKeys.has(r.id)) continue
+      if (realised.has(r.id)) continue
       for (const dIso of expandRuleInRange(r, d, d)) {
         const eff = effectiveOccurrenceAmount(r, dIso, overrides)
         if (eff == null) continue
         const original = r.kind === 'income' ? r.amount : -r.amount
         out.push({
-          rule_id: r.id,
+          key: `rule-${r.id}`,
           amount: eff,
-          originalAmount: original,
-          overridden: Math.abs(eff - original) > 0.005,
           description: r.name,
           categoryId: r.category_id,
+          recurring: true,
+          ruleId: r.id,
+          originalAmount: original,
+          overridden: Math.abs(eff - original) > 0.005,
         })
       }
     }
-    return out
-  }, [rules, overrides, txs, viewedIso])
+    return out.sort((a, b) => a.amount - b.amount)
+  }, [txs, rules, overrides, viewedIso, catMap])
 
-  const dayExpense = useMemo(() => {
-    let sum = 0
-    for (const t of dayTxs) if (Number(t.amount) < 0) sum += -Number(t.amount)
-    for (const i of dayRuleHits) if (i.amount < 0) sum += -i.amount
-    return sum
-  }, [dayTxs, dayRuleHits])
+  const weekday = viewed.toLocaleDateString('en-US', { weekday: 'long' })
+  const dateLabel = viewed.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
+  const relative =
+    dayOffset === 0 ? 'Today' : dayOffset === 1 ? 'Tomorrow' : dayOffset === -1 ? 'Yesterday' : weekday
+  const isPast = dayOffset < 0
 
-  const dayIncome = useMemo(() => {
-    let sum = 0
-    for (const t of dayTxs) if (Number(t.amount) > 0) sum += Number(t.amount)
-    for (const i of dayRuleHits) if (i.amount > 0) sum += i.amount
-    return sum
-  }, [dayTxs, dayRuleHits])
-
-  const balance = useMemo(() => {
-    const opening0 = opening?.opening_balance ?? 0
-    let running = opening0
-    const cutoffDay = viewed.getDate()
-    const realisedKeys = new Set(
-      txs.filter((t) => t.recurring_rule_id).map((t) => `${t.recurring_rule_id}|${t.occurred_on}`),
-    )
-    for (let day = 1; day <= cutoffDay; day++) {
-      const dIso = `${monthIso.slice(0, 8)}${String(day).padStart(2, '0')}`
-      for (const t of txs) {
-        if (t.occurred_on === dIso) running += Number(t.amount)
-      }
-      const d = new Date(dIso + 'T00:00:00')
-      for (const r of rules) {
-        for (const _ of expandRuleInRange(r, d, d)) {
-          if (realisedKeys.has(`${r.id}|${dIso}`)) continue
-          const eff = effectiveOccurrenceAmount(r, dIso, overrides)
-          if (eff == null) continue
-          running += eff
-        }
-      }
-    }
-    return running
-  }, [txs, rules, overrides, opening, monthIso, viewed])
-
-  type Item =
-    | {
-        key: string
-        amount: number
-        description: string
-        recurring: false
-        tx: Transaction
-      }
-    | {
-        key: string
-        amount: number
-        description: string
-        recurring: true
-        ruleId: string
-        categoryId: string | null
-        originalAmount: number
-        overridden: boolean
-      }
-
-  const items = useMemo<Item[]>(() => {
-    const out: Item[] = [
-      ...dayTxs.map<Item>((t) => {
-        const catId = t.category_id
-        return {
-          key: `tx-${t.id}`,
-          amount: Number(t.amount),
-          description:
-            t.description?.trim() ||
-            (catId ? catMap[catId]?.name : null) ||
-            'Untitled',
-          recurring: false,
-          tx: t,
-        }
-      }),
-      ...dayRuleHits.map<Item>((i) => ({
-        key: `rule-${i.rule_id}`,
+  const openItem = (i: Item) => {
+    if (i.recurring) {
+      setEditingPending({
+        rule_id: i.ruleId,
+        date: viewedIso,
         amount: i.amount,
         description: i.description,
-        recurring: true,
-        ruleId: i.rule_id,
         categoryId: i.categoryId,
-        originalAmount: i.originalAmount,
-        overridden: i.overridden,
-      })),
-    ]
-    return out.sort((a, b) => a.amount - b.amount)
-  }, [dayTxs, dayRuleHits, catMap])
-
-  const dayLabel = viewed.toLocaleDateString(undefined, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  })
-  const offsetLabel =
-    dayOffset === 0
-      ? 'Today'
-      : dayOffset === 1
-        ? 'Tomorrow'
-        : dayOffset === -1
-          ? 'Yesterday'
-          : dayOffset > 0
-            ? `In ${dayOffset} days`
-            : `${Math.abs(dayOffset)} days ago`
-  const balanceLabel =
-    dayOffset === 0
-      ? 'Current balance'
-      : dayOffset > 0
-        ? 'Projected balance'
-        : 'Balance on this day'
+      })
+    } else {
+      setEditingTx(i.tx)
+    }
+  }
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <header className="flex items-center justify-between gap-3">
+    <div className="space-y-8 md:space-y-10">
+      <header className="flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <div className="label">{offsetLabel}</div>
-          <h1 className="text-2xl md:text-3xl font-semibold mt-0.5 truncate">{dayLabel}</h1>
+          <div className="label">{relative === weekday ? dateLabel : `${weekday}, ${dateLabel}`}</div>
+          <h1 className="page-title mt-0.5 truncate">{relative}</h1>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <button
-            type="button"
-            onClick={() => setDayOffset((d) => d - 1)}
-            className="btn-outline w-9 h-9 px-0 grid place-items-center"
-            aria-label="Previous day"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
           {dayOffset !== 0 && (
-            <button
-              type="button"
-              onClick={() => setDayOffset(0)}
-              className="btn-outline text-xs px-2.5"
-            >
+            <button type="button" onClick={() => setDayOffset(0)} className="btn-tinted !rounded-full !py-1.5 text-[13px]">
               Today
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setDayOffset((d) => d + 1)}
-            className="btn-outline w-9 h-9 px-0 grid place-items-center"
-            aria-label="Next day"
-          >
-            <ChevronRight className="w-4 h-4" />
+          <button type="button" onClick={() => setDayOffset((d) => d - 1)} className="icon-btn" aria-label="Previous day">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <button type="button" onClick={() => setDayOffset((d) => d + 1)} className="icon-btn" aria-label="Next day">
+            <ChevronRight className="w-5 h-5" />
           </button>
         </div>
       </header>
 
+      <GoalAlertRibbon />
+
+      {/* Hero — the one number this screen is about. */}
       <motion.section
-        initial={{ opacity: 0, y: 8 }}
+        key={viewedIso}
+        initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        className="card p-5 md:p-7"
+        transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
       >
-        <div className="label mb-1">
-          Planned {dayOffset === 0 ? 'for today' : 'for this day'}
-        </div>
-        <div
-          className={`stat-num font-semibold text-4xl md:text-5xl ${
-            dayExpense === 0 ? 'text-fg-muted' : 'text-fg'
-          }`}
-        >
+        <div className="label">{isPast ? 'Was planned' : 'Planned to spend'}</div>
+        <div className={cn('hero-num text-[56px] md:text-[72px] mt-2', dayExpense === 0 && 'text-fg-subtle')}>
           {formatMoney(dayExpense, currency)}
         </div>
-        <div className="text-xs md:text-sm text-fg-subtle mt-2 stat-num">
-          {dayExpense === 0 && dayIncome === 0 ? (
-            'Nothing planned.'
-          ) : (
-            <>
-              Income +{formatMoney(dayIncome, currency)} · Net{' '}
-              {formatMoney(dayIncome - dayExpense, currency)}
-            </>
+        <div className="mt-4 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-[15px]">
+          <span className="text-fg-muted">
+            Balance after {dayOffset === 0 ? 'today' : 'this day'}{' '}
+            <span className={cn('stat-num font-medium', balance + assetBoost < 0 ? 'text-negative' : 'text-fg')}>
+              {formatMoney(balance + assetBoost, currency)}
+            </span>
+          </span>
+          {dayIncome > 0 && (
+            <span className="text-fg-muted">
+              Income <span className="stat-num font-medium text-positive">+{formatMoney(dayIncome, currency)}</span>
+            </span>
           )}
         </div>
-      </motion.section>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-        <Mini
-          label={balanceLabel}
-          value={formatMoney(balance + assetBoost, currency)}
-          icon={<Wallet className="w-4 h-4" />}
-          sub={
-            assetBoost > 0
-              ? `cash ${formatMoney(balance, currency)} + assets ${formatMoney(assetBoost, currency)}`
-              : undefined
-          }
-        />
-      </div>
-
-      <section className="card p-4 md:p-5">
-        <div className="label mb-2">
-          What's on for {dayOffset === 0 ? 'today' : 'this day'}
-        </div>
-        <h2 className="font-semibold mb-3">
-          {items.length === 0
-            ? 'Nothing planned'
-            : `${items.length} ${items.length === 1 ? 'item' : 'items'}`}
-        </h2>
-        {items.length > 0 && (
-          <div className="divide-y divide-border">
-            {items.map((i) => (
-              <div
-                key={i.key}
-                className="group flex items-center justify-between gap-3 py-2"
-              >
-                <div className="min-w-0 flex items-center gap-3">
-                  <div
-                    className={`w-8 h-8 rounded-lg grid place-items-center shrink-0 ${
-                      i.amount >= 0
-                        ? 'bg-positive/10 text-positive'
-                        : 'bg-negative/10 text-negative'
-                    }`}
-                  >
-                    {i.amount >= 0 ? (
-                      <ArrowUpRight className="w-4 h-4" />
-                    ) : (
-                      <ArrowDownRight className="w-4 h-4" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium truncate flex items-center gap-2">
-                      <span className="truncate">{i.description}</span>
-                      {i.recurring && (
-                        <span className="text-[10px] text-fg-subtle uppercase tracking-wider shrink-0">
-                          recurring
-                        </span>
-                      )}
-                      {i.recurring && i.overridden && (
-                        <span
-                          className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-accent/10 text-accent shrink-0"
-                          title={`Trimmed from ${formatMoney(i.originalAmount, currency)} via rebalance`}
-                        >
-                          trimmed
-                        </span>
-                      )}
-                    </div>
-                    {i.recurring && i.overridden && (
-                      <div className="text-[11px] text-fg-subtle stat-num mt-0.5">
-                        was <span className="line-through">{formatMoney(i.originalAmount, currency)}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <div
-                    className={`stat-num text-sm ${
-                      i.amount >= 0 ? 'text-positive' : 'text-negative'
-                    }`}
-                  >
-                    {formatMoney(i.amount, currency)}
-                  </div>
-                  <div className="flex items-center gap-1 max-md:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                    {i.recurring ? (
-                      <button
-                        onClick={() =>
-                          setEditingPending({
-                            rule_id: i.ruleId,
-                            date: viewedIso,
-                            amount: i.amount,
-                            description: i.description,
-                            categoryId: i.categoryId,
-                          })
-                        }
-                        className="btn-ghost !p-1.5"
-                        title="Edit for this day (creates a per-day override, doesn't change the rule)"
-                        aria-label="Edit recurring entry for this day"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => setEditingTx(i.tx)}
-                          className="btn-ghost !p-1.5"
-                          title="Edit"
-                          aria-label="Edit entry"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm('Delete this entry?')) {
-                              deleteTx.mutate(i.tx.id)
-                            }
-                          }}
-                          className="btn-ghost !p-1.5 text-negative"
-                          title="Delete"
-                          aria-label="Delete entry"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+        {assetBoost > 0 && (
+          <div className="text-[13px] text-fg-subtle mt-1 stat-num">
+            Cash {formatMoney(balance, currency)} + assets {formatMoney(assetBoost, currency)}
           </div>
         )}
+      </motion.section>
+
+      {/* Next days — how the plan is spread over the coming week. */}
+      <section>
+        <div className="label mb-3">Next {UPCOMING_DAYS} days</div>
+        <div className="-mx-4 px-4 -my-2 py-2 md:-mx-1 md:px-1 flex gap-2 overflow-x-auto snap-x scroll-px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {upcoming.map(({ offset, date, totals }) => {
+            const spend = totals?.expense ?? 0
+            const weekend = date.getDay() === 0 || date.getDay() === 6
+            return (
+              <button
+                key={offset}
+                type="button"
+                onClick={() => setDayOffset(offset)}
+                className="snap-start shrink-0 w-[116px] text-left rounded-2xl bg-bg-card ring-1 ring-border/70 px-3 py-3 hover:ring-border-strong transition-shadow"
+              >
+                <div className={cn('text-[12px] font-medium', weekend ? 'text-fg-subtle' : 'text-fg-muted')}>
+                  {date.toLocaleDateString('en-US', { weekday: 'short' })} {date.getDate()}
+                </div>
+                <div className={cn('stat-num text-[15px] font-semibold mt-1.5 truncate', spend === 0 && 'text-fg-subtle')}>
+                  {spend === 0 ? '—' : formatMoney(spend, currency)}
+                </div>
+                <div
+                  className={cn(
+                    'stat-num text-[12px] mt-0.5 truncate',
+                    totals && totals.balance + assetBoost < 0 ? 'text-negative' : 'text-fg-subtle',
+                  )}
+                >
+                  {totals ? formatMoney(totals.balance + assetBoost, currency) : ''}
+                </div>
+              </button>
+            )
+          })}
+        </div>
       </section>
 
-      {/* Draft transactions section */}
+      {/* The day's entries */}
+      <section>
+        <div className="flex items-baseline justify-between mb-3">
+          <div className="label">Entries</div>
+          {items.length > 0 && <div className="text-[13px] text-fg-subtle">{items.length}</div>}
+        </div>
+        <div className="card overflow-hidden">
+          {items.map((i) => {
+            const cat = i.categoryId ? catMap[i.categoryId] : undefined
+            return (
+              <button
+                key={i.key}
+                type="button"
+                onClick={() => openItem(i)}
+                data-no-press
+                className="w-full flex items-center gap-3 px-4 py-3.5 text-left border-b border-border/70 hover:bg-bg-elev/50 active:bg-bg-elev transition-colors"
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ background: cat?.color ?? 'rgb(var(--border-strong))' }}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] truncate">{i.description}</span>
+                  {(cat || i.recurring) && (
+                    <span className="flex items-center gap-1.5 text-[12px] text-fg-subtle mt-0.5">
+                      {i.recurring && <Repeat className="w-3 h-3" aria-label="Recurring" />}
+                      {cat && cat.name !== i.description && <span className="truncate">{cat.name}</span>}
+                      {i.recurring && i.overridden && (
+                        <span className="stat-num">
+                          · was <span className="line-through">{formatMoney(Math.abs(i.originalAmount), currency)}</span>
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </span>
+                <span className={cn('stat-num text-[15px] font-medium shrink-0', i.amount >= 0 ? 'text-positive' : 'text-fg')}>
+                  {i.amount >= 0 ? '+' : '−'}
+                  {formatMoney(Math.abs(i.amount), currency)}
+                </span>
+              </button>
+            )
+          })}
+          <button
+            type="button"
+            onClick={() => setAddOpen(true)}
+            data-no-press
+            className="w-full flex items-center gap-3 px-4 py-3.5 text-left text-[15px] text-fg-muted hover:bg-bg-elev/50 active:bg-bg-elev transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            {items.length === 0 ? 'Nothing planned — add an entry' : 'Add entry'}
+          </button>
+        </div>
+
+        <div className="flex gap-2 mt-3">
+          <button type="button" onClick={() => setDraftOpen(true)} className="btn-ghost !px-3 text-[13px] text-fg-muted">
+            <FilePen className="w-4 h-4" /> Draft
+          </button>
+          <button type="button" onClick={() => setBalanceOutOpen(true)} className="btn-ghost !px-3 text-[13px] text-fg-muted">
+            <Scale className="w-4 h-4" /> Balance out
+          </button>
+        </div>
+      </section>
+
       <DraftSection viewedIso={viewedIso} currency={currency} catMap={catMap} />
 
-      {/* Edit dialogs */}
       <AddTransactionDialog
         open={!!editingTx}
         onOpenChange={(o) => !o && setEditingTx(null)}
@@ -423,6 +324,8 @@ export function TodayLens() {
         initialAmount={editingTx ? Number(editingTx.amount) : undefined}
         initialDescription={editingTx?.description ?? undefined}
         initialCategoryId={editingTx?.category_id ?? null}
+        initialIsShared={editingTx?.is_shared}
+        initialRecurringRuleId={editingTx?.recurring_rule_id ?? null}
         editId={editingTx?.id}
       />
       <AddTransactionDialog
@@ -434,6 +337,9 @@ export function TodayLens() {
         initialCategoryId={editingPending?.categoryId ?? null}
         initialRecurringRuleId={editingPending?.rule_id ?? null}
       />
+      <AddTransactionDialog open={addOpen} onOpenChange={setAddOpen} initialDate={viewedIso} />
+      <AddTransactionDialog open={draftOpen} onOpenChange={setDraftOpen} initialDate={viewedIso} isDraft />
+      <BalanceOutDialog open={balanceOutOpen} onOpenChange={setBalanceOutOpen} />
     </div>
   )
 }
@@ -481,123 +387,45 @@ function DraftSection({
   if (dayDrafts.length === 0) return null
 
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="card p-4 md:p-5 border-dashed border-accent/30"
-    >
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <FileEdit className="w-4 h-4 text-accent" />
-          <div className="label">Drafts</div>
-        </div>
-        <div className="stat-num text-sm font-medium text-fg-muted">
-          {formatMoney(draftTotal, currency)}
-        </div>
+    <motion.section initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+      <div className="flex items-baseline justify-between mb-3">
+        <div className="label">Drafts</div>
+        <div className="stat-num text-[13px] text-fg-subtle">{formatMoney(draftTotal, currency)}</div>
       </div>
-
-      <div className="divide-y divide-border">
+      <div className="card overflow-hidden">
         {dayDrafts.map((d) => (
-          <div
-            key={d.id}
-            className="group flex items-center justify-between gap-3 py-2"
-          >
-            <div className="min-w-0 flex items-center gap-3">
-              <div
-                className={`w-8 h-8 rounded-lg grid place-items-center shrink-0 ${
-                  d.amount >= 0
-                    ? 'bg-positive/10 text-positive'
-                    : 'bg-negative/10 text-negative'
-                }`}
-              >
-                {d.amount >= 0 ? (
-                  <ArrowUpRight className="w-4 h-4" />
-                ) : (
-                  <ArrowDownRight className="w-4 h-4" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-medium truncate flex items-center gap-2">
-                  <span className="truncate">
-                    {d.description?.trim() ||
-                      (d.category_id ? catMap[d.category_id]?.name : null) ||
-                      'Untitled'}
-                  </span>
-                  <span className="text-[10px] text-accent uppercase tracking-wider shrink-0">
-                    draft
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <div
-                className={`stat-num text-sm ${
-                  d.amount >= 0 ? 'text-positive' : 'text-negative'
-                }`}
-              >
-                {formatMoney(d.amount, currency)}
-              </div>
-              <button
-                onClick={() => deleteDraft.mutate(d.id)}
-                className="btn-ghost !p-1.5 text-negative max-md:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-                title="Remove draft"
-                aria-label="Remove draft"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
+          <div key={d.id} className="group flex items-center gap-3 px-4 py-3.5 border-b border-border/70">
+            <span className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-fg-subtle" />
+            <span className="min-w-0 flex-1 text-[15px] truncate text-fg-muted">
+              {d.description?.trim() || (d.category_id ? catMap[d.category_id]?.name : null) || 'Untitled'}
+            </span>
+            <span className={cn('stat-num text-[15px] shrink-0', d.amount >= 0 ? 'text-positive' : 'text-fg-muted')}>
+              {formatMoney(d.amount, currency)}
+            </span>
+            <button
+              onClick={() => deleteDraft.mutate(d.id)}
+              className="icon-btn !w-8 !h-8 -mr-2 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+              aria-label="Remove draft"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         ))}
-      </div>
-
-      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
-        <button
-          onClick={() => deleteDraftsForDate.mutate(viewedIso)}
-          className="btn-ghost text-xs flex-1"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          Clear all
-        </button>
-        <button
-          onClick={commitDrafts}
-          disabled={insertTxs.isPending || deleteDraftsForDate.isPending}
-          className="btn-primary text-xs flex-1"
-        >
-          <CheckCircle2 className="w-3.5 h-3.5" />
-          {insertTxs.isPending ? 'Adding…' : 'Add to ledger'}
-        </button>
+        <div className="flex items-center gap-2 p-3">
+          <button onClick={() => deleteDraftsForDate.mutate(viewedIso)} className="btn-ghost text-[13px] flex-1 text-fg-muted">
+            <Trash2 className="w-4 h-4" />
+            Clear
+          </button>
+          <button
+            onClick={commitDrafts}
+            disabled={insertTxs.isPending || deleteDraftsForDate.isPending}
+            className="btn-primary text-[13px] flex-1"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            {insertTxs.isPending ? 'Adding…' : 'Add to ledger'}
+          </button>
+        </div>
       </div>
     </motion.section>
-  )
-}
-
-function Mini({
-  label,
-  value,
-  sub,
-  tone = 'default',
-  icon,
-}: {
-  label: string
-  value: string
-  sub?: string
-  tone?: 'default' | 'positive' | 'negative'
-  icon?: React.ReactNode
-}) {
-  const toneClass =
-    tone === 'positive' ? 'text-positive' : tone === 'negative' ? 'text-negative' : 'text-fg'
-  return (
-    <div className="card p-3 md:p-4">
-      <div className="flex items-center justify-between">
-        <div className="label">{label}</div>
-        {icon && <span className={toneClass}>{icon}</span>}
-      </div>
-      <div
-        className={`mt-1.5 md:mt-2 text-lg md:text-xl font-semibold stat-num ${toneClass}`}
-      >
-        {value}
-      </div>
-      {sub && <div className="text-[11px] md:text-xs text-fg-subtle mt-1">{sub}</div>}
-    </div>
   )
 }

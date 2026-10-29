@@ -4,6 +4,7 @@ import { Tags, ChevronRight, Share2, Copy, Check, BrainCircuit } from 'lucide-re
 import { useSettings, useUpdateSettings } from '@/hooks/queries'
 import { useAuth } from '@/hooks/useAuth'
 import { useUi } from '@/store/ui'
+import { Segmented } from '@/components/ui/Segmented'
 import { supabase } from '@/lib/supabase'
 import { getHapticsPreference, isHapticsSupported, setHapticsEnabled, haptics } from '@/lib/haptics'
 import { APP_VERSION, BUILD_SHA, BUILD_TIME, formatBuildTime } from '@/lib/version'
@@ -18,10 +19,10 @@ export function SettingsPage() {
   const { user } = useAuth()
 
   return (
-    <div className="p-4 md:p-8 space-y-4 md:space-y-6 max-w-2xl mx-auto">
+    <div className="px-4 py-5 md:px-10 md:py-10 space-y-5 md:space-y-8 max-w-2xl mx-auto">
       <header>
         <div className="label">Account</div>
-        <h1 className="text-2xl md:text-3xl font-semibold mt-0.5">Settings</h1>
+        <h1 className="page-title mt-0.5">Settings</h1>
       </header>
 
       <section className="card p-4 md:p-5 space-y-3 md:space-y-4">
@@ -51,10 +52,15 @@ export function SettingsPage() {
         </div>
         <div>
           <div className="label mb-1.5">Theme</div>
-          <div className="flex gap-2">
-            <button onClick={() => setTheme('dark')} className={`btn flex-1 ${theme === 'dark' ? 'bg-accent/10 text-accent border border-accent/30' : 'btn-outline'}`}>Dark</button>
-            <button onClick={() => setTheme('light')} className={`btn flex-1 ${theme === 'light' ? 'bg-accent/10 text-accent border border-accent/30' : 'btn-outline'}`}>Light</button>
-          </div>
+          <Segmented
+            value={theme}
+            onChange={setTheme}
+            options={[
+              { value: 'system', label: 'System' },
+              { value: 'light', label: 'Light' },
+              { value: 'dark', label: 'Dark' },
+            ]}
+          />
         </div>
         <HapticsToggle />
       </section>
