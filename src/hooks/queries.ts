@@ -80,7 +80,10 @@ export function useUpsertRule() {
       if (error) throw error
       return data as RecurringRule
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['recurring_rules'] }),
+    onSuccess: () => Promise.all([
+      qc.invalidateQueries({ queryKey: ['recurring_rules'] }),
+      qc.invalidateQueries({ queryKey: ['monthly_opening'] }),
+    ]),
   })
 }
 
@@ -94,6 +97,7 @@ export function useDeleteRule() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['recurring_rules'] })
       qc.invalidateQueries({ queryKey: ['transactions'] })
+      qc.invalidateQueries({ queryKey: ['monthly_opening'] })
     },
   })
 }
