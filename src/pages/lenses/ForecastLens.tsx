@@ -7,12 +7,12 @@ import {
 import { useAssets, useMonthlyOpening, useRecurringOverridesInRange, useRecurringRules, useSettings, useTransactionsInRange } from '@/hooks/queries'
 import { formatMoney, isoDate, monthKey } from '@/lib/utils'
 import { expandRuleInRange } from '@/lib/recurring'
-import { effectiveOccurrenceAmount } from '@/lib/projection'
+import { effectiveOccurrenceAmount, summarizeProjectionFlows } from '@/lib/projection'
 
 type Horizon = 1 | 3 | 6 | 12
 
 /**
- * Multi-month forecast based purely on recurring rules + current opening balance.
+ * Multi-month forecast based on the opening balance, ledger and recurring rules.
  * "Scenarios" panel layers a salary delta and an expense % delta on top so the
  * user can ask "what if I get a raise" or "what if I cut spending by 15%".
  */
@@ -33,7 +33,9 @@ export function ForecastLens() {
   // reacts to manual edits (additions, deletions, modifications) just like
   // any other lens.
   const horizonStart = useMemo(() => new Date(today.getFullYear(), today.getMonth(), 1), [today])
-  const horizonEnd = useMemo(() => new Date(today.getFullYear(), today.getMonth() + horizon, 0), [today, horizon])
+  // The final chart point includes day 1 of the following month. Fetch that
+  // day's ledger entries and overrides too, so they are not omitted or doubled.
+  const horizonEnd = useMemo(() => new Date(today.getFullYear(), today.getMonth() + horizon, 1), [today, horizon])
   const fromIso = isoDate(horizonStart)
   const toIso = isoDate(horizonEnd)
   const { data: txs = [] } = useTransactionsInRange(fromIso, toIso)
@@ -159,6 +161,10 @@ export function ForecastLens() {
   const last = series[series.length - 1]
   const opening0 = opening?.opening_balance ?? 0
   const scenarioActive = salaryDelta !== 0 || spendDeltaPct !== 0
+  const flows = useMemo(
+    () => summarizeProjectionFlows(fromIso, toIso, txs, rules, overrides),
+    [fromIso, toIso, txs, rules, overrides],
+  )
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -200,6 +206,33 @@ export function ForecastLens() {
           )}
         </div>
       </motion.section>
+
+      <details className="card p-4 md:p-5">
+        <summary className="cursor-pointer font-semibold">How this forecast is calculated</summary>
+        <p className="text-sm text-fg-muted mt-3">
+          From {horizonStart.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} through {horizonEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}, including that day’s activity.
+          {' '}Actual and planned ledger entries are included, plus recurring payments not already in the ledger, with skips and amount changes applied.
+        </p>
+        <dl className="mt-3 divide-y divide-border text-sm">
+          {[
+            ['Opening cash balance', opening0],
+            ['Actual ledger entries · net', flows.actualNet],
+            ['Planned ledger entries · net', flows.plannedNet],
+            ['Remaining recurring payments · net', flows.recurringNet],
+            ['Included assets', assetBoost],
+            ...(scenarioActive ? [['Scenario adjustment', (last?.scenarioBalance ?? 0) - (last?.baselineBalance ?? 0)]] as const : []),
+          ].map(([label, amount]) => (
+            <div key={label} className="flex justify-between gap-3 py-2">
+              <dt className="text-fg-muted">{label}</dt>
+              <dd className="stat-num shrink-0">{formatMoney(Number(amount), currency)}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="text-xs text-fg-subtle mt-3">
+          Monthly goals are targets for warnings and optional rebalancing; they do not enter this calculation.
+          {' '}This is a projection of your recorded plan, not an estimate based on average past spending. The headline is rounded to the nearest {currency}.
+        </p>
+      </details>
 
       {/* Chart */}
       <section className="card p-4 md:p-5">
@@ -259,7 +292,7 @@ export function ForecastLens() {
             </div>
           </div>
           <div>
-            <div className="label mb-1.5">Spending delta (% of recurring expenses)</div>
+            <div className="label mb-1.5">Spending delta (% of all expenses)</div>
             <input
               className="input stat-num"
               inputMode="decimal"
@@ -271,7 +304,7 @@ export function ForecastLens() {
               }}
             />
             <div className="text-[11px] text-fg-subtle mt-1">
-              {spendDeltaPct === 0 ? 'No change.' : `Recurring spend ${spendDeltaPct > 0 ? 'up' : 'down'} ${Math.abs(spendDeltaPct)}%.`}
+              {spendDeltaPct === 0 ? 'No change.' : `All expenses ${spendDeltaPct > 0 ? 'up' : 'down'} ${Math.abs(spendDeltaPct)}%.`}
             </div>
           </div>
         </div>
@@ -288,13 +321,14 @@ export function ForecastLens() {
       {/* Per-month breakdown */}
       <section className="card p-4 md:p-5">
         <div className="label mb-2">Month by month</div>
-        <h2 className="font-semibold mb-3">Recurring activity</h2>
+        <h2 className="font-semibold mb-3">Ledger & recurring activity</h2>
+        <p className="text-xs text-fg-subtle mb-3">Monthly totals are shown at the next month’s chart point. The chart balance also includes that point’s day-1 activity.</p>
         <div className="divide-y divide-border">
-          {series.map((m) => {
+          {series.slice(1).map((m, index) => {
             const net = m.monthlyIncome - m.monthlyExpense
             return (
               <div key={m.iso} className="grid grid-cols-[1fr_auto_auto] gap-3 py-2 items-baseline">
-                <div className="text-sm font-medium">{m.label}</div>
+                <div className="text-sm font-medium">{new Date(today.getFullYear(), today.getMonth() + index, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
                 <div className="stat-num text-xs text-fg-subtle">
                   <span className="text-positive">+{formatMoney(m.monthlyIncome, currency)}</span>
                   <span className="mx-1">·</span>

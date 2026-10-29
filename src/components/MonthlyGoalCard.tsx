@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Target, CheckCircle2, AlertTriangle, Plus } from 'lucide-react'
+import { Target, CheckCircle2, AlertTriangle, Plus, Pencil } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import {
   useMonthlyGoal,
-  useUpsertMonthlyGoal,
+  useMonthlyGoalsInRange,
+  useUpsertMonthlyGoals,
   useDeleteMonthlyGoal,
 } from '@/hooks/queries'
-import { formatMoney } from '@/lib/utils'
+import { formatMoney, goalMonths } from '@/lib/utils'
+import { pushToast } from '@/components/ui/Toast'
 
 interface MonthlyGoalCardProps {
   yearMonth: string // 'YYYY-MM'
@@ -23,8 +25,8 @@ interface MonthlyGoalCardProps {
  * Tap card → edit sheet (number input + Save/Clear).
  */
 export function MonthlyGoalCard({ yearMonth, projectedEnd, currency }: MonthlyGoalCardProps) {
-  const { data: goal, isLoading } = useMonthlyGoal(yearMonth)
-  const upsert = useUpsertMonthlyGoal()
+  const { data: goal, isLoading, isError } = useMonthlyGoal(yearMonth)
+  const upsert = useUpsertMonthlyGoals()
   const del = useDeleteMonthlyGoal()
   const [editing, setEditing] = useState(false)
 
@@ -40,6 +42,7 @@ export function MonthlyGoalCard({ yearMonth, projectedEnd, currency }: MonthlyGo
       <motion.button
         type="button"
         onClick={() => setEditing(true)}
+        disabled={isLoading || isError}
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         whileTap={{ scale: 0.985 }}
@@ -51,24 +54,30 @@ export function MonthlyGoalCard({ yearMonth, projectedEnd, currency }: MonthlyGo
           .filter(Boolean)
           .join(' ')}
         aria-label={goal ? 'Edit monthly goal' : 'Set monthly goal'}
+        aria-haspopup="dialog"
       >
         <div className="flex items-center justify-between">
           <div className="label flex items-center gap-1.5">
             <Target className="w-3.5 h-3.5" />
             Monthly goal
           </div>
-          {status === 'on-track' && <CheckCircle2 className="w-4 h-4 text-positive" />}
-          {status === 'over' && <AlertTriangle className="w-4 h-4 text-negative" />}
-          {status === 'not-set' && <Plus className="w-4 h-4 text-fg-subtle" />}
+          <span className="flex items-center gap-2 text-xs text-fg-muted">
+            {status === 'on-track' && <CheckCircle2 className="w-4 h-4 text-positive" />}
+            {status === 'over' && <AlertTriangle className="w-4 h-4 text-negative" />}
+            {goal ? <Pencil className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+            {goal ? 'Edit' : 'Set goal'}
+          </span>
         </div>
 
         {isLoading ? (
           <div className="mt-2 h-7 w-32 rounded-md bg-bg-elev animate-pulse" />
+        ) : isError ? (
+          <div className="mt-2 text-sm text-negative" role="alert">Could not load this month’s goal. Try refreshing.</div>
         ) : !goal ? (
           <>
             <div className="mt-1.5 text-xl md:text-2xl font-semibold">Set a goal</div>
             <div className="text-[11px] md:text-xs text-fg-subtle mt-1">
-              Target end-of-month balance — we’ll help you stay on track.
+              Choose the balance you want to keep at the end of {monthLabel(yearMonth)}.
             </div>
           </>
         ) : (
@@ -80,6 +89,7 @@ export function MonthlyGoalCard({ yearMonth, projectedEnd, currency }: MonthlyGo
             >
               {formatMoney(Number(goal.amount), currency)}
             </div>
+            <div className="text-xs text-fg-muted mt-1">Target balance · {monthLabel(yearMonth)}</div>
             <div className="text-[11px] md:text-xs text-fg-subtle mt-1 stat-num">
               {status === 'on-track'
                 ? `On track — projected ${formatMoney(projectedEnd, currency)}`
@@ -92,23 +102,34 @@ export function MonthlyGoalCard({ yearMonth, projectedEnd, currency }: MonthlyGo
         )}
       </motion.button>
 
-      <GoalEditSheet
-        open={editing}
-        onOpenChange={setEditing}
-        yearMonth={yearMonth}
-        currentAmount={goal ? Number(goal.amount) : null}
-        currency={currency}
-        onSave={async (amount) => {
-          await upsert.mutateAsync({ year_month: yearMonth, amount })
-          setEditing(false)
-        }}
-        onClear={async () => {
-          await del.mutateAsync(yearMonth)
-          setEditing(false)
-        }}
-      />
+      {editing && (
+        <GoalEditSheet
+          key={yearMonth}
+          open
+          onOpenChange={setEditing}
+          yearMonth={yearMonth}
+          currentAmount={goal ? Number(goal.amount) : null}
+          currency={currency}
+          pending={upsert.isPending || del.isPending}
+          onSave={async (amount, months) => {
+            await upsert.mutateAsync(months.map((year_month) => ({ year_month, amount })))
+            pushToast(months.length === 1 ? 'Monthly goal saved' : `Goals saved for ${months.length} months`)
+            setEditing(false)
+          }}
+          onClear={async () => {
+            await del.mutateAsync(yearMonth)
+            pushToast('Monthly goal cleared')
+            setEditing(false)
+          }}
+        />
+      )}
     </>
   )
+}
+
+function monthLabel(yearMonth: string) {
+  const [y, m] = yearMonth.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
 
 interface GoalEditSheetProps {
@@ -117,83 +138,121 @@ interface GoalEditSheetProps {
   yearMonth: string
   currentAmount: number | null
   currency: string
-  onSave: (amount: number) => void | Promise<void>
-  onClear: () => void | Promise<void>
+  pending: boolean
+  onSave: (amount: number, months: string[]) => Promise<void>
+  onClear: () => Promise<void>
 }
 
-function GoalEditSheet({
-  open,
-  onOpenChange,
-  yearMonth,
-  currentAmount,
-  currency,
-  onSave,
-  onClear,
-}: GoalEditSheetProps) {
-  const [value, setValue] = useState<string>(currentAmount != null ? String(currentAmount) : '')
+function GoalEditSheet({ open, onOpenChange, yearMonth, currentAmount, currency, pending, onSave, onClear }: GoalEditSheetProps) {
+  const formId = useId()
+  const [value, setValue] = useState(currentAmount != null ? String(currentAmount) : '')
+  const [through, setThrough] = useState(yearMonth)
+  const [error, setError] = useState<string | null>(null)
+  const months = goalMonths(yearMonth, through)
+  const { data: existing = [], isPending: loadingGoals, isError: goalsError } = useMonthlyGoalsInRange(
+    yearMonth, through, months.length > 1,
+  )
+  const numeric = Number(value.replace(/\s/g, '').replace(',', '.'))
+  const valid = Number.isFinite(numeric) && numeric > 0 && numeric <= 999999999999.99 && /^\d+(\.\d{1,2})?$/.test(String(numeric))
+  const rangeReady = months.length === 1 || (!loadingGoals && !goalsError)
+  const [y, m] = yearMonth.split('-').map(Number)
+  const maxMonth = new Date(y, m + 10, 1)
+  const maxThrough = `${maxMonth.getFullYear()}-${String(maxMonth.getMonth() + 1).padStart(2, '0')}`
 
-  // Reset value when sheet opens for a different month or currentAmount changes
-  useEffect(() => {
-    if (open) setValue(currentAmount != null ? String(currentAmount) : '')
-  }, [open, currentAmount])
+  async function save() {
+    if (!valid || !months.length || !rangeReady || pending) return
+    setError(null)
+    try {
+      await onSave(numeric, months)
+    } catch {
+      setError('Could not save your goals. Your changes are still here — please try again.')
+    }
+  }
 
-  const numeric = Number(value.replace(',', '.'))
-  const valid = Number.isFinite(numeric) && numeric > 0
-
-  const monthLabel = useMemo(() => {
-    const [y, m] = yearMonth.split('-').map(Number)
-    return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-  }, [yearMonth])
+  async function clear() {
+    if (pending) return
+    setError(null)
+    try {
+      await onClear()
+    } catch {
+      setError('Could not clear this goal. Please try again.')
+    }
+  }
 
   return (
     <Modal
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(next) => { if (!pending) onOpenChange(next) }}
       title={currentAmount != null ? 'Edit monthly goal' : 'Set monthly goal'}
-      size="sm"
       footer={
         <>
           {currentAmount != null && (
-            <button type="button" onClick={onClear} className="btn-outline text-negative">
-              Clear
+            <button type="button" onClick={clear} disabled={pending} className="btn-outline text-negative mr-auto">
+              Clear this month
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => valid && onSave(numeric)}
-            disabled={!valid}
-            className="btn-primary"
-          >
-            Save
+          <button type="submit" form={formId} disabled={!valid || !months.length || !rangeReady || pending} className="btn-primary">
+            {pending ? 'Saving…' : months.length > 1 ? `Save ${months.length} goals` : 'Save goal'}
           </button>
         </>
       }
     >
-      <div className="space-y-4">
+      <form id={formId} onSubmit={(e) => { e.preventDefault(); void save() }} className="space-y-4">
         <div>
-          <div className="label">Target balance at end of</div>
-          <div className="font-semibold mt-0.5">{monthLabel}</div>
+          <div className="label">Target balance at the end of</div>
+          <div className="font-semibold mt-0.5">{monthLabel(yearMonth)}</div>
         </div>
-
         <label className="block">
           <span className="label">Amount ({currency})</span>
           <input
             type="text"
             inputMode="decimal"
-            autoFocus
             value={value}
-            onChange={(e) => setValue(e.target.value.replace(/[^\d.,]/g, ''))}
+            disabled={pending}
+            onChange={(e) => setValue(e.target.value.replace(/[^\d.,\s]/g, ''))}
             placeholder="0"
             className="mt-1 w-full text-2xl md:text-3xl font-semibold stat-num bg-bg-elev rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-accent/60"
           />
         </label>
-
-        <p className="text-xs text-fg-subtle leading-relaxed">
-          The app will warn you when an expense pushes the projected end-of-month
-          balance below this number, and offer to trim future planned expenses to
-          stay on track.
+        <label className="block">
+          <span className="label">Apply the same goal through</span>
+          <select value={through} disabled={pending}
+            onChange={(e) => setThrough(e.target.value)} className="input mt-1 w-full">
+            {goalMonths(yearMonth, maxThrough).map((month) => (
+              <option key={month} value={month}>{monthLabel(month)}{month === yearMonth ? ' · only this month' : ''}</option>
+            ))}
+          </select>
+        </label>
+        <div className="text-xs text-fg-muted space-y-2" aria-live="polite">
+          {!months.length ? (
+            <p role="alert" className="text-negative">Choose a range of 1–12 months starting in {monthLabel(yearMonth)}.</p>
+          ) : months.length === 1 ? (
+            <p>Only {monthLabel(yearMonth)} will change. Other months keep their goals.</p>
+          ) : loadingGoals ? (
+            <p>Checking existing goals…</p>
+          ) : goalsError ? (
+            <p role="alert" className="text-negative">Could not load existing goals. Reopen this editor to try again.</p>
+          ) : (
+            <>
+              <p>{months.length} months: {monthLabel(yearMonth)} – {monthLabel(through)}. Existing goals in this range will be replaced.</p>
+              <ul className="space-y-1 max-h-36 overflow-y-auto">
+                {months.map((month) => {
+                  const previous = existing.find((g) => g.year_month === month)
+                  return <li key={month} className="flex justify-between gap-3">
+                    <span>{monthLabel(month)}</span>
+                    <span className="stat-num">{previous ? formatMoney(Number(previous.amount), currency) : 'Not set'} → {valid ? formatMoney(numeric, currency) : '…'}</span>
+                  </li>
+                })}
+              </ul>
+            </>
+          )}
+        </div>
+        <p className="text-xs text-fg-muted leading-relaxed">
+          This is the balance you want to keep, including assets marked “include in balance”.
+          Goals are used for warnings and optional expense rebalancing. Changing a goal does not change the forecast or your transactions.
         </p>
-      </div>
+        {error && <p role="alert" className="text-sm text-negative">{error}</p>}
+      </form>
     </Modal>
   )
 }

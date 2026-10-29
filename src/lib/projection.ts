@@ -34,6 +34,33 @@ export function findOverride(
   )
 }
 
+/** Signed baseline contributions, with realised recurring payments counted once. */
+export function summarizeProjectionFlows(
+  fromIso: string,
+  toIso: string,
+  transactions: Transaction[],
+  rules: RecurringRule[],
+  overrides: RecurringOverride[],
+) {
+  let actualNet = 0, plannedNet = 0, recurringNet = 0
+  const realised = new Set<string>()
+  for (const t of transactions) {
+    if (t.occurred_on < fromIso || t.occurred_on > toIso) continue
+    if (t.planned) plannedNet += Number(t.amount)
+    else actualNet += Number(t.amount)
+    if (t.recurring_rule_id) realised.add(`${t.recurring_rule_id}|${t.occurred_on}`)
+  }
+  const from = new Date(fromIso + 'T00:00:00')
+  const to = new Date(toIso + 'T00:00:00')
+  for (const rule of rules) {
+    for (const date of expandRuleInRange(rule, from, to)) {
+      if (realised.has(`${rule.id}|${date}`)) continue
+      recurringNet += effectiveOccurrenceAmount(rule, date, overrides) ?? 0
+    }
+  }
+  return { actualNet, plannedNet, recurringNet }
+}
+
 /**
  * Compute the projected end-of-month balance for the given month.
  *
