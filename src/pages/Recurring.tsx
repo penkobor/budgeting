@@ -129,13 +129,16 @@ export function RecurringPage() {
                   <span className="ml-2 text-fg-muted">· ~{formatMoney(monthly.total, currency)} / month</span>
                 )}
               </div>
+              {r.ends_on && (
+                <div className="text-xs text-fg-muted mt-1">Through {r.ends_on} · historical payments kept</div>
+              )}
             </div>
             <div className={`stat-num font-semibold ${r.kind === 'income' ? 'text-positive' : 'text-negative'}`}>
               {r.kind === 'income' ? '+' : '−'}{formatMoney(r.amount, currency)}
             </div>
             <div className="flex gap-1">
-              <button onClick={() => setEditing(r)} className="btn-ghost !p-2"><Pencil className="w-4 h-4" /></button>
-              <button onClick={() => { if (confirm('Delete this rule?')) del.mutate(r.id) }} className="btn-ghost !p-2 text-negative"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => setEditing(r)} className="btn-ghost !p-2" aria-label={`Edit ${r.name}`}><Pencil className="w-4 h-4" /></button>
+              <button onClick={() => { if (confirm('Delete this rule?')) del.mutate(r.id) }} className="btn-ghost !p-2 text-negative" aria-label={`Delete ${r.name}`}><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
           )
@@ -186,28 +189,37 @@ function RuleForm({ rule, open, onClose }: { rule: RecurringRule | null; open: b
   const [intervalDays, setIntervalDays] = useState(String(rule?.interval_days ?? 7))
   const [categoryId, setCategoryId] = useState(rule?.category_id ?? '')
   const [startsOn, setStartsOn] = useState(rule?.starts_on ?? isoDate(new Date()))
+  const [endsOn, setEndsOn] = useState(rule?.ends_on ?? '')
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [isShared, setIsShared] = useState<boolean>(rule?.is_shared ?? false)
+  const invalidEndDate = endsOn !== '' && endsOn < startsOn
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     const a = parseFloat(amount.replace(',', '.'))
-    if (!name || Number.isNaN(a) || a <= 0) return
-    await upsert.mutateAsync({
-      id: rule?.id,
-      name,
-      amount: a,
-      kind,
-      frequency,
-      day_of_month: frequency === 'monthly' || frequency === 'yearly' ? parseInt(dayOfMonth, 10) : null,
-      day_of_week: frequency === 'weekly' ? parseInt(dayOfWeek, 10) : null,
-      month_of_year: frequency === 'yearly' ? parseInt(monthOfYear, 10) : null,
-      interval_days: frequency === 'custom' ? parseInt(intervalDays, 10) : null,
-      category_id: categoryId || null,
-      starts_on: startsOn,
-      active: rule?.active ?? true,
-      is_shared: isShared,
-    })
-    onClose()
+    if (!name || Number.isNaN(a) || a <= 0 || invalidEndDate || upsert.isPending) return
+    setSaveError(null)
+    try {
+      await upsert.mutateAsync({
+        id: rule?.id,
+        name,
+        amount: a,
+        kind,
+        frequency,
+        day_of_month: frequency === 'monthly' || frequency === 'yearly' ? parseInt(dayOfMonth, 10) : null,
+        day_of_week: frequency === 'weekly' ? parseInt(dayOfWeek, 10) : null,
+        month_of_year: frequency === 'yearly' ? parseInt(monthOfYear, 10) : null,
+        interval_days: frequency === 'custom' ? parseInt(intervalDays, 10) : null,
+        category_id: categoryId || null,
+        starts_on: startsOn,
+        ends_on: endsOn || null,
+        active: rule?.active ?? true,
+        is_shared: isShared,
+      })
+      onClose()
+    } catch {
+      setSaveError('Could not save this rule. Your changes are still here — please try again.')
+    }
   }
 
   const cats = personalCategories.filter((c) => c.kind === kind)
@@ -221,7 +233,7 @@ function RuleForm({ rule, open, onClose }: { rule: RecurringRule | null; open: b
       footer={
         <>
           <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
-          <button type="submit" form="rule-form" className="btn-primary" disabled={upsert.isPending}>
+          <button type="submit" form="rule-form" className="btn-primary" disabled={upsert.isPending || invalidEndDate}>
             {upsert.isPending ? 'Saving…' : 'Save'}
           </button>
         </>
@@ -307,10 +319,21 @@ function RuleForm({ rule, open, onClose }: { rule: RecurringRule | null; open: b
           </div>
         )}
 
-        <div>
-          <div className="label mb-1.5">Starts on</div>
-          <input type="date" className="input stat-num" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} />
-        </div>
+        <label className="block">
+          <span className="label block mb-1.5">Starts on</span>
+          <input type="date" className="input stat-num" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} required />
+        </label>
+        <label className="block">
+          <span className="label block mb-1.5">Ends on (optional)</span>
+          <input type="date" className="input stat-num" value={endsOn} min={startsOn}
+            onChange={(e) => setEndsOn(e.target.value)} aria-invalid={invalidEndDate} aria-describedby="rule-end-help" />
+        </label>
+        <p id="rule-end-help" className={`text-xs leading-relaxed ${invalidEndDate ? 'text-negative' : 'text-fg-muted'}`}>
+          {invalidEndDate
+            ? 'The end date must be on or after the start date.'
+            : 'Includes this date. Leave blank to keep repeating. To change a future price, end this rule and add a new one starting the following day.'}
+        </p>
+        {saveError && <p role="alert" className="text-sm text-negative">{saveError}</p>}
 
         <label className="flex items-center gap-2.5 rounded-xl border border-border p-3 cursor-pointer">
           <input
