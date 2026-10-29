@@ -12,7 +12,7 @@ import {
   useSettings,
 } from '@/hooks/queries'
 import { computeProjectedEndBalance } from '@/lib/projection'
-import { daysInMonth, formatMoney, monthKey } from '@/lib/utils'
+import { daysInMonth, formatMoney, monthKey, yearMonthKey } from '@/lib/utils'
 
 /**
  * Sticky ribbon shown across Dashboard lenses when the current month's
@@ -21,13 +21,13 @@ import { daysInMonth, formatMoney, monthKey } from '@/lib/utils'
  * goal or review the budget.
  */
 export function GoalAlertRibbon() {
-  const today = new Date()
+  const today = useMemo(() => new Date(), [])
   const monthIso = monthKey(today)
   const lastDay = daysInMonth(today.getFullYear(), today.getMonth())
   const toIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
 
   const { data: settings } = useSettings()
-  const { data: goal } = useMonthlyGoal(monthIso)
+  const { data: goal } = useMonthlyGoal(yearMonthKey(today))
   const { data: opening } = useMonthlyOpening(monthIso)
   const { data: txs = [] } = useTransactionsInRange(monthIso, toIso)
   const { data: rules = [] } = useRecurringRules()

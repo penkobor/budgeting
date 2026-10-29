@@ -256,19 +256,34 @@ export function useMonthlyGoal(yearMonth: string) {
   })
 }
 
-export function useUpsertMonthlyGoal() {
+export function useMonthlyGoalsInRange(from: string, through: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['monthly_goals', from, through],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('monthly_goals')
+        .select('*').gte('year_month', from).lte('year_month', through).order('year_month')
+      if (error) throw error
+      return (data ?? []) as MonthlyGoal[]
+    },
+  })
+}
+
+export function useUpsertMonthlyGoals() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (g: MonthlyGoalInsert) => {
+    mutationFn: async (goals: MonthlyGoalInsert[]) => {
       const { data, error } = await supabase
         .from('monthly_goals')
-        .upsert(g, { onConflict: 'user_id,year_month' })
+        .upsert(goals, { onConflict: 'user_id,year_month' })
         .select()
-        .single()
       if (error) throw error
-      return data as MonthlyGoal
+      return data as MonthlyGoal[]
     },
-    onSuccess: (g) => qc.invalidateQueries({ queryKey: ['monthly_goal', g.year_month] }),
+    onSuccess: () => Promise.all([
+      qc.invalidateQueries({ queryKey: ['monthly_goal'] }),
+      qc.invalidateQueries({ queryKey: ['monthly_goals'] }),
+    ]),
   })
 }
 
@@ -279,7 +294,10 @@ export function useDeleteMonthlyGoal() {
       const { error } = await supabase.from('monthly_goals').delete().eq('year_month', yearMonth)
       if (error) throw error
     },
-    onSuccess: (_, yearMonth) => qc.invalidateQueries({ queryKey: ['monthly_goal', yearMonth] }),
+    onSuccess: (_, yearMonth) => Promise.all([
+      qc.invalidateQueries({ queryKey: ['monthly_goal', yearMonth] }),
+      qc.invalidateQueries({ queryKey: ['monthly_goals'] }),
+    ]),
   })
 }
 
